@@ -14,7 +14,6 @@
 # =============================================================================
 
 services:
-
   # ===========================================================================
   # PostgreSQL Database
   # ===========================================================================
@@ -87,9 +86,10 @@ services:
   # Web - Gunicorn (Flask App)
   # ===========================================================================
   web:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    # To build from source instead of pulling pre-built image:
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
     image: mitexleo/piefed-docker:latest
     container_name: piefed_app
     restart: unless-stopped
@@ -219,7 +219,15 @@ services:
     networks:
       - piefed_network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000/health"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:5000/health",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -229,9 +237,10 @@ services:
   # Celery Worker - Background Tasks
   # ===========================================================================
   celery:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    # To build from source instead of pulling pre-built image:
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
     image: mitexleo/piefed-docker:latest
     container_name: piefed_celery
     restart: unless-stopped
@@ -262,7 +271,15 @@ services:
     networks:
       - piefed_network
     healthcheck:
-      test: ["CMD", "celery", "-A", "celery_worker_docker.celery", "inspect", "ping"]
+      test:
+        [
+          "CMD",
+          "celery",
+          "-A",
+          "celery_worker_docker.celery",
+          "inspect",
+          "ping",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -272,9 +289,10 @@ services:
   # Notifications Server - FastAPI/SSE
   # ===========================================================================
   notifs:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    # To build from source instead of pulling pre-built image:
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
     image: mitexleo/piefed-docker:latest
     container_name: piefed_notifs
     restart: unless-stopped
@@ -292,7 +310,15 @@ services:
     networks:
       - piefed_network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8000/health"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8000/health",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
