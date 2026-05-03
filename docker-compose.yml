@@ -90,7 +90,7 @@ services:
     # build:
     #   context: .
     #   dockerfile: Dockerfile
-    image: mitexleo/piefed-docker:latest
+    image: mitexleo/piefed-docker:v1.6.20
     container_name: piefed_app
     restart: unless-stopped
     depends_on:
@@ -241,7 +241,7 @@ services:
     # build:
     #   context: .
     #   dockerfile: Dockerfile
-    image: mitexleo/piefed-docker:latest
+    image: mitexleo/piefed-docker:v1.6.20
     container_name: piefed_celery
     restart: unless-stopped
     depends_on:
@@ -293,7 +293,7 @@ services:
     # build:
     #   context: .
     #   dockerfile: Dockerfile
-    image: mitexleo/piefed-docker:latest
+    image: mitexleo/piefed-docker:v1.6.20
     container_name: piefed_notifs
     restart: unless-stopped
     depends_on:

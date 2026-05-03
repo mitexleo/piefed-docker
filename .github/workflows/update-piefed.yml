@@ -1,0 +1,149 @@
+# =============================================================================
+# PieFed Docker Auto-Update Workflow
+# =============================================================================
+# Runs daily at 06:00 UTC to check for new PieFed releases on Codeberg.
+# When a new version is found:
+#   1. Clones the new source into piefed/
+#   2. Builds & pushes multi-arch Docker image (mitexleo/piefed-docker)
+#   3. Updates version tags and commits to this repository
+#
+# Required GitHub Secrets:
+#   DOCKER_USERNAME  - Docker Hub username
+#   DOCKER_PASSWORD  - Docker Hub password/token
+#   PAT_TOKEN        - GitHub personal access token (with repo scope)
+# =============================================================================
+
+name: Update PieFed Version
+
+on:
+  schedule:
+    # Run daily at 06:00 UTC
+    - cron: '0 6 * * *'
+  # Allow manual trigger from GitHub UI
+  workflow_dispatch:
+
+env:
+  DOCKER_IMAGE: mitexleo/piefed-docker
+  PIEFED_REPO: https://codeberg.org/rimu/pyfedi.git
+  PIEFED_DIR: piefed
+
+jobs:
+  check-and-update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Need full history for commits
+          fetch-depth: 0
+          # Use PAT to trigger downstream workflows
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+
+      - name: Fetch latest PieFed release from Codeberg
+        id: fetch_release
+        run: |
+          echo "Fetching latest release from Codeberg..."
+          RESPONSE=$(curl -s https://codeberg.org/api/v1/repos/rimu/pyfedi/releases/latest)
+          LATEST_TAG=$(echo "$RESPONSE" | jq -r '.tag_name' 2>/dev/null)
+          LATEST_VERSION=$(echo "$LATEST_TAG" | sed 's/^v//')
+          echo "Latest PieFed release: $LATEST_TAG (version: $LATEST_VERSION)"
+          echo "tag=$LATEST_TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$LATEST_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Read current version from Dockerfile
+        id: current_version
+        run: |
+          CURRENT_VERSION=$(grep -oP 'org\.opencontainers\.image\.version="\K[^"]+' Dockerfile)
+          echo "Current Docker image version: $CURRENT_VERSION"
+          echo "version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Compare versions
+        id: compare
+        run: |
+          NEW="${{ steps.fetch_release.outputs.version }}"
+          CURRENT="${{ steps.current_version.outputs.version }}"
+          echo "Comparing: current=$CURRENT, latest=$NEW"
+          if [ "$NEW" = "$CURRENT" ]; then
+            echo "No new version available. Current: $CURRENT"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "New version detected: $CURRENT → $NEW"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update piefed source to new version
+        if: steps.compare.outputs.changed == 'true'
+        run: |
+          NEW_TAG="${{ steps.fetch_release.outputs.tag }}"
+          echo "Cloning PieFed $NEW_TAG..."
+          rm -rf piefed/
+          git clone --branch "$NEW_TAG" --depth 1 "$PIEFED_REPO" piefed/
+          rm -rf piefed/.git piefed/.gitignore piefed/.forgejo 2>/dev/null || true
+          echo "PieFed source updated to $NEW_TAG"
+
+      - name: Update Dockerfile version
+        if: steps.compare.outputs.changed == 'true'
+        run: |
+          NEW_VERSION="${{ steps.fetch_release.outputs.version }}"
+          sed -i "s/org\.opencontainers\.image\.version=\"[^\"]*\"/org.opencontainers.image.version=\"$NEW_VERSION\"/" Dockerfile
+          echo "Dockerfile version updated to $NEW_VERSION"
+
+      - name: Update docker-compose.yml version tags
+        if: steps.compare.outputs.changed == 'true'
+        run: |
+          NEW_TAG="v${{ steps.fetch_release.outputs.version }}"
+          sed -i "s|image: $DOCKER_IMAGE:v[0-9.]*|image: $DOCKER_IMAGE:$NEW_TAG|g" docker-compose.yml
+          echo "docker-compose.yml image tags updated to $NEW_TAG"
+
+      - name: Update README version reference
+        if: steps.compare.outputs.changed == 'true'
+        run: |
+          NEW_VERSION="${{ steps.fetch_release.outputs.version }}"
+          sed -i "s/v[0-9]\.[0-9]\.[0-9]* — a Lemmy/v$NEW_VERSION — a Lemmy/" README.md
+          sed -i "s|mitexleo/piefed-docker:v[0-9.]*|mitexleo/piefed-docker:v$NEW_VERSION|g" README.md
+          echo "README version references updated"
+
+      - name: Set up Docker Buildx
+        if: steps.compare.outputs.changed == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        if: steps.compare.outputs.changed == 'true'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push Docker image
+        if: steps.compare.outputs.changed == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.DOCKER_IMAGE }}:v${{ steps.fetch_release.outputs.version }}
+            ${{ env.DOCKER_IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Commit and push updates
+        if: steps.compare.outputs.changed == 'true'
+        run: |
+          NEW_VERSION="${{ steps.fetch_release.outputs.version }}"
+          git config user.name "piefed-bot"
+          git config user.email "bot@github.com"
+          git add -A
+          git commit -m "chore: update PieFed to v$NEW_VERSION
+
+          - Synced piefed/ source to upstream v$NEW_VERSION
+          - Built and pushed Docker image: $DOCKER_IMAGE:v$NEW_VERSION
+          - Updated latest tag
+
+          This commit was automatically generated by the update-piefed workflow."
+          git push

@@ -110,8 +110,8 @@ def create_app(config_class=Config):
 
     app.wsgi_app = StripCookieVaryForAnonymous(ProxyFix(app.wsgi_app, x_for=1))
 
-    app.config["API_TITLE"] = "PieFed 1.7 Alpha API"
-    app.config["API_VERSION"] = "alpha 1.7"
+    app.config["API_TITLE"] = "PieFed 1.6 Alpha API"
+    app.config["API_VERSION"] = "alpha 1.6"
     app.config["OPENAPI_VERSION"] = "3.1.1"
     if app.config["SERVE_API_DOCS"]:
         app.config["OPENAPI_URL_PREFIX"] = "/api/alpha"
@@ -125,35 +125,43 @@ def create_app(config_class=Config):
                     "bearerAuth": {
                         "type": "http",
                         "scheme": "bearer",
-                        "bearerFormat": "JWT",
+                        "bearerFormat": "JWT"
                     }
                 }
             },
             "servers": [
                 {
                     "url": f"{app.config['HTTP_PROTOCOL']}://{app.config['SERVER_NAME']}",
-                    "description": "This instance",
-                },
-                {
-                    "url": "https://piefed.social",
-                    "description": "Flagship instance, stable branch",
+                    "description": "This instance"
                 },
                 {
                     "url": "https://crust.piefed.social",
-                    "description": "Official development instance",
+                    "description": "Development instance",
                 },
+                {
+                    "url": "https://piefed.social",
+                },
+                {
+                    "url": "https://preferred.social"
+                },
+                {
+                    "url": "https://feddit.online"
+                },
+                {
+                    "url": "https://piefed.world"
+                }
             ],
             "info": {
-                "title": "PieFed 1.7 Alpha API",
+                "title": "PieFed 1.6 Alpha API",
                 "contact": {
                     "name": "Developer",
-                    "url": "https://codeberg.org/rimu/pyfedi",
+                    "url": "https://codeberg.org/rimu/pyfedi"
                 },
                 "license": {
                     "name": "AGPLv3",
-                    "url": "https://www.gnu.org/licenses/agpl-3.0.en.html#license-text",
-                },
-            },
+                    "url": "https://www.gnu.org/licenses/agpl-3.0.en.html#license-text"
+                }
+            }
         }
     rest_api.init_app(app)
     rest_api.DEFAULT_ERROR_RESPONSE_NAME = None  # Don't include default errors, define them ourselves

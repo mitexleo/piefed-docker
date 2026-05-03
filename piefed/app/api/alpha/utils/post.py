@@ -1,7 +1,7 @@
 from datetime import timedelta
 import time
 
-from flask import current_app, g
+from flask import current_app, g, request
 from sqlalchemy import desc, text, and_, exists, asc, or_
 from sqlakeyset import get_page
 from sqlalchemy.exc import IntegrityError
@@ -35,6 +35,10 @@ def get_post_list(auth, data, user_id=None, search_type='Posts') -> dict:
         page = int(data['page'])
     else:
         page = 1
+
+    if request.referrer and 'p.piefed.social' in request.referrer:
+        page += 1
+
     limit = int(data['limit']) if 'limit' in data else 50
     liked_only = data['liked_only'] if 'liked_only' in data else False
     saved_only = data['saved_only'] if 'saved_only' in data else False
