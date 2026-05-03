@@ -1,0 +1,32 @@
+# Git
+piefed/.git/
+piefed/.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+venv/
+
+# Docker volumes
+pgdata/
+media/
+logs/
+tmp/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment files
+.env
+.env.docker
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,414 @@
+{% if theme() != 'piefed' and file_exists('app/templates/themes/' + theme() + '/base.html') -%}
+    {% extends 'themes/' + theme() + '/base.html' -%}
+{% else -%}
+    {% extends "base.html" -%}
+{% endif -%}
+{% from 'bootstrap5/form.html' import render_form %}
+{% from "_macros.html" import render_username, render_communityname %}
+{% from "post/post_teaser/_macros.html" import render_article, render_link, render_poll, render_image, render_video %}
+{% from "post/reply/_macros.html" import render_comment_voting_buttons, render_reply_notification_toggle, render_emoji_button %}
+
+{% if current_user.is_authenticated and user.id == current_user.id %}
+    {% set active_child = 'view_profile' %}
+{% endif %}
+
+{% block schema_org %}
+    {% if user.indexable and user.searchable and user.instance_id == 1 -%}
+        {% include "user/_schema_org.html" %}
+    {%- endif %}
+{% endblock %}
+
+{% block app_content %}
+<div class="row">
+    <main class="col-12 col-lg-8 position-relative main_pane">
+        {% if user.cover_image() != '' %}
+            <div class="community_header" style="height: 240px; background-image: url({{ user.cover_image() }});">
+                <nav id="breadcrumb_nav" aria-label="{{ _('Breadcrumbs') }}">
+                  <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/">{{ _('Home') }}</a></li>
+                    <li class="breadcrumb-item"><a href="/people">{{ _('People') }}</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">{{ user.display_name()|shorten }}</li>
+                  </ol>
+                </nav>
+            </div>
+            <a href="{{ user.avatar_image() }}"><img class="community_icon_big bump_up rounded-circle" src="{{ user.avatar_image() }}" alt="{{ _('Profile pic') }}" /></a>
+            <h1 class="mt-2">{{ user.display_name() if user.is_local()  else user.display_name() + ', ' + user.ap_id }}
+                {% if current_user.is_authenticated %}
+                    {% include 'user/_notification_toggle.html' %}
+                {% endif %}
+            </h1>
+        {% elif user.avatar_image() != '' %}
+            <div class="row">
+                <nav id="breadcrumb_nav" aria-label="{{ _('Breadcrumbs') }}">
+                  <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/">{{ _('Home') }}</a></li>
+                    <li class="breadcrumb-item"><a href="/people">{{ _('People') }}</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">{{ user.display_name()|shorten }}</li>
+                  </ol>
+                </nav>
+                <div class="col-3 col-md-2">
+                    {% if low_bandwidth %}
+                        <a href="{{ user.avatar_image() }}"><img class="community_icon_big rounded-circle" src="{{ user.avatar_image() }}" alt="{{ _('Profile pic') }}" /></a>
+                    {% else %}
+                        {% if user.avatar.source_url and user.avatar.source_url.endswith('.mp4') %}
+                            <video autoplay disablepictureinpicture loop muted class="community_icon_big rounded-circle">
+                                <source src="{{ user.avatar.source_url }}" type="video/mp4">
+                            </video>
+                        {% else %}
+                            <a href="{{ user.avatar_image() }}"><img class="community_icon_big rounded-circle" src="{{ user.avatar_image() }}" alt="{{ _('Profile pic') }}" /></a>
+                        {% endif %}
+                    {% endif %}
+                </div>
+                <div class="col-9 col-md-10">
+                    <h1 class="mt-3">{{ user.display_name() if user.is_local() else user.display_name() + ', ' + user.ap_id }}
+                        {% if current_user.is_authenticated %}
+                            {% include 'user/_notification_toggle.html' %}
+                        {% endif %}
+                    </h1>
+                </div>
+            </div>
+        {% else %}
+            <nav id="breadcrumb_nav" aria-label="{{ _('Breadcrumbs') }}">
+              <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/">{{ _('Home') }}</a></li>
+                <li class="breadcrumb-item"><a href="/people">{{ _('People') }}</a></li>
+                <li class="breadcrumb-item active" aria-current="page">{{ user.link()|shorten }}</li>
+              </ol>
+            </nav>
+            <h1 class="mt-2">{{ user.display_name() if user.is_local() else user.display_name() + ', ' + user.ap_id }}
+                {% if current_user.is_authenticated %}
+                    {% include 'user/_notification_toggle.html' %}
+                {% endif %}
+            </h1>
+        {% endif %}
+        <div class="profile_action_buttons">
+        {% if current_user.is_authenticated and current_user != user %}
+                {% if user.accept_private_messages -%}
+                    {% if user.is_local() -%}
+                        <a class="btn btn-primary" href="{{ url_for('chat.new_message', to=user.id) }}" rel="nofollow" aria-label="{{ _('Send message') }}">{{ _('Send message') }}</a>
+                    {% else -%}
+                        {% if user.accept_private_messages >= 2 -%}
+                            <a class="btn btn-primary" href="{{ url_for('chat.new_message', to=user.id) }}" rel="nofollow" aria-label="{{ _('Send message') }}">{{ _('Send message') }}</a>
+                        {% endif -%}
+                    {% endif -%}
+                {% endif -%}
+                {% if user.matrix_user_id %}
+                    <a class="btn btn-primary" href="https://matrix.to/#/{{ user.matrix_user_id }}" rel="nofollow" aria-label="{{ _('Send message with matrix chat') }}">{{ _('Send message using Matrix') }}</a>
+                {% endif %}
+
+                {% if user.is_local() -%}
+                    <a class="btn btn-primary" href="{{ url_for('user.fediverse_redirect', actor=user.link()) }}" rel="nofollow"><img src="/static/images/fediverse_logo.svg" width="22" height="22"> {{ _('Follow') }}</a>
+                {% endif -%}
+
+                <div class="dropdown display-inline">
+                  <button class="btn btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    {{ _('More') }}
+                  </button>
+                  <ul class="dropdown-menu">
+                    {% if current_user.is_admin_or_staff() -%}
+                        <li>
+                            <a class="dropdown-item" href="{{ url_for("admin.admin_user_edit", user_id=user.id) }}">
+                                {{ _("Edit user in admin panel") }}
+                            </a>
+                        </li>
+                    {% endif -%}
+                    <li><a class="dropdown-item" href="{{ user.ap_profile_id }}" title="{{ _('View user profile on original server') }}" rel="nofollow"><span class="fe fe-external"></span>{{ _('View original profile') }}</a></li>
+                    {% if current_user.has_blocked_user(user.id) -%}
+                        <li><a class="dropdown-item" role="button" aria-label="{{ _('Unblock @%(user_name)s', user_name=user.display_name) }}"
+                          hx-post="/u/{{ user.user_name if user.is_local() else user.ap_id }}/unblock" hx-trigger="click throttle:1s">{{ _('Unblock %(user_name)s', user_name=user.display_name()) }}</a></li>
+                    {% else -%}
+                        <li><a class="dropdown-item confirm_first" role="button" aria-label="{{ _('Block @%(user_name)s', user_name=user.display_name) }}"
+                          hx-post="/u/{{ user.user_name if user.is_local() else user.ap_id }}/block" hx-trigger="click throttle:1s">{{ _('Block %(user_name)s', user_name=user.display_name()) }}</a></li>
+                    {% endif -%}
+                    {% if not user.is_local() -%}
+                        {% if current_user.has_blocked_instance(user.instance_id) -%}
+                            <li><a class="dropdown-item send_post" href='#' data-url="{{ url_for('instance.instance_unblock', instance_id=user.instance_id, redirect='/u/' + user.link()) }}" rel="nofollow">{{ _('Unblock %(instance_name)s', instance_name=user.ap_domain) }}</a></li>
+                        {% else %}
+                          <li><a class="dropdown-item confirm_first" role="button" aria-label="{{ _('Block everyone from %(instance_name)s', instance_name=user.ap_domain) }}"
+                            hx-post="/u/{{ user.user_name if user.is_local() else user.ap_id }}/block_instance" hx-trigger="click throttle:1s">{{ _('Block everyone from %(instance_name)s', instance_name=user.ap_domain) }}</a></li>
+                        {% endif -%}
+                    {% endif -%}
+                    <li><a class="dropdown-item" href="{{ url_for('user.report_profile', actor=user.link()) }}" rel="nofollow">{{ _('Report') }}</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('main.modlog', suspect_user_name=user.lemmy_link()) }}" rel="nofollow">{{ _('Look up in modlog') }}</a></li>
+                    <li><a class="dropdown-item" href="https://lemmyverse.link/u/{{ user.lemmy_link() }}" rel="nofollow">{{ _('Lemmyverse.link') }}</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('user.edit_user_note', actor=user.link()) }}" rel="nofollow">{{ _('Edit note') }}</a></li>
+                  </ul>
+                </div>
+        {% endif %}
+        </div>
+        <p class="small">{{ _('Instance') }}: <a href="{{ url_for('instance.instance_overview', instance_domain=user.instance_domain()) }}">{{ user.instance_domain() }}</a>
+            {% if user.is_instance_admin() or (user.is_local() and user.get_id() in admin_ids) %}<span class="red">({{ _('Admin') }})</span>{% endif %}<br />
+            {% if user.get_id() in admin_ids or user.is_staff() %}{{ _('Role permissions') }}: {% if user.get_id() in admin_ids %}{{ _('Admin') }}{% endif %} {% if user.is_staff() %}{{ _('Staff') }}{% endif %}<br />{% endif %}
+            {% if user.bot or user.bot_override %}{{ _('Bot Account') }}<br />{% endif %}
+            {% if current_user.is_authenticated %}{{ _('Note') }}: {{ user.get_note(current_user) }}<br />{% endif %}
+            {{ _('Joined') }}: {{ localize_datetime(user.created, locale) }}<br />
+            {% if current_user.is_authenticated %}{{ _('Attitude') }}: <span title="{{ _('Ratio of upvotes cast to downvotes cast. Higher is more positive.') }}">{% if user.attitude %}{{ (user.attitude * 100) | round | int }}%{% endif %}</span><br />{% endif %}
+            {% if current_user.is_authenticated and current_user.get_id() in admin_ids and user.reputation %}{{ _('Reputation') }}: <span title="{{ _('Reputation: The Karma of the account. Total up votes minus down votes they got.') }}">{{ user.reputation | round | int }}</span><br />{% endif %}
+            {{ _('Posts') }}: {{ user.post_count }}<br />
+            {{ _('Comments') }}: {{ user.post_reply_count }}<br />
+            {% if current_user.is_authenticated and current_user.get_id() in admin_ids -%}
+                {{ _('Votes') }}: {{ user.get_num_upvotes() }} / {{ user.get_num_downvotes() }}<br />
+                {% if user.referrer %}{{ _('Referer') }}: <span title="{{ _('Which website linked to PieFed when the user initially registered.') }}">{{ user.referrer }}</span><br />{% endif %}
+                {% if user.ip_address %}{{ _('IP and country code') }}: <span title="{{ _('IP address of last interaction.') }}">{{ user.ip_address }} ({{ user.ip_address_country if user.ip_address_country }})</span><br />{% endif %}
+                {% if user.last_seen %}{{ _('Active') }}: {{ localize_datetime(user.last_seen, locale) }}<br />{% endif %}
+                {% if user.stripe_subscription_id %}<strong>{{ _('Donor') }}</strong><br />{% endif %}
+            {% endif -%}
+        </p>
+        {% if user.about_html -%}
+            <div class="profile_bio">
+                {{ user.about_html|safe }}
+            </div>
+        {% endif -%}
+        {% if user.extra_fields -%}
+            <ul class="list-group">
+                {% for field in user.extra_fields -%}
+                    <li class="list-group-item">
+                        <p class="mb-0"><strong>{{ field.label }}</strong><br>
+                           {% if field.text.startswith('http') -%}
+                                <a href="{{ field.text }}" rel="nofollow noindex ugc{{ ' me' if field.label.lower() == 'mastodon' }}">{{ field.text }}</a>
+                           {% else -%}
+                                {{ field.text }}
+                           {% endif -%}
+                        </p>
+                    </li>
+                {% endfor -%}
+            </ul>
+        {% endif -%}
+        <ul class="nav nav-tabs nav-justified mt-4">
+          <li class="nav-item">
+            <a href="#overview_tab" class="nav-link {{ 'active' if post_prev_url is none and replies_prev_url is none }}" id="overview-pill" data-bs-toggle="pill" role="tab" aria-current="page">{{ _('Overview') }}</a>
+          </li>
+          <li class="nav-item">
+            <a href="#post_list_tab" class="nav-link {{ 'active' if post_prev_url is not none }}" id="post-pill" data-bs-toggle="pill" role="tab" aria-current="page">{{ _('Posts') }}</a>
+          </li>
+          <li class="nav-item">
+            <a href="#comments_tab" class="nav-link {{ 'active' if replies_prev_url is not none }}" id="comments-pill" data-bs-toggle="pill" role="tab">{{ _('Comments') }}</a>
+          </li>
+        </ul>
+        <div class="tab-content">
+          {% if overview_items %}
+            <div class="tab-pane border-0 {{ 'active' if post_prev_url is none and replies_prev_url is none }}" id="overview_tab" role="tabpanel" aria-labelled-by="overview-pill">
+              {% if rss_feed -%}
+                  <p class="mt-2 d-block" style="float: right;">
+                      <a class="no-underline" href="{{ rss_feed }}" rel="nofollow"><span class="fe fe-rss"></span> RSS feed</a>
+                  </p>
+              {% endif -%}
+              <h4 class="mt-2">{{ _('Posts and Comments by %(user_name)s', user_name=user.display_name() if user.is_local()  else user.display_name() + ', ' + user.ap_id) }}</h4>
+              <div class="post_list comments">
+                  {% for item in overview_items %}
+                    {% if item.__class__.__name__ == 'Post' %}
+                      {% with post=item %}
+                        {% include 'post/_post_teaser.html' %}
+                      {% endwith %}
+                    {% elif item.__class__.__name__ == 'PostReply' %}
+                      {% with post_reply=item, teaser=True %}
+                          {% include 'post/_post_reply_teaser.html' %}
+                      {% endwith %}
+                    {% endif %}
+                  {% endfor %}
+              </div>
+              <nav aria-label="{{ _('Overview pagination') }}" class="mt-4" role="navigation">
+                      {% if overview_prev_url %}
+                          <a href="{{ overview_prev_url }}" class="btn btn-primary">
+                              <span aria-hidden="true">&larr;</span> {{ _('Previous page') }}
+                          </a>
+                      {% endif %}
+                      {% if overview_next_url %}
+                          <a href="{{ overview_next_url }}" class="btn btn-primary">
+                              {{ _('Next page') }} <span aria-hidden="true">&rarr;</span>
+                          </a>
+                      {% endif %}
+              </nav>
+            </div>
+          {% else %}
+            <div class="tab-pane border-0 {{ 'active' if post_prev_url is none and replies_prev_url is none }}" id="overview_tab" role="tabpanel" aria-labelled-by="overview-pill">
+              <p>{{ _('No posts or comments yet.') }}</p>
+            </div>
+          {% endif %}
+          {% if posts %}
+            <div class="tab-pane border-0 {{ 'active' if post_prev_url is not none }}" id="post_list_tab" role="tabpanel" aria-labelled-by="post-pill">
+              {% if rss_feed -%}
+                  <p class="mt-2 d-block" style="float: right;">
+                      <a class="no-underline" href="{{ rss_feed }}" rel="nofollow"><span class="fe fe-rss"></span> {{ _('RSS feed') }}</a>
+                  </p>
+              {% endif -%}
+              <h4 class="mt-2">{{ _('Posts by %(user_name)s', user_name=user.display_name() if user.is_local()  else user.display_name() + ', ' + user.ap_id) }}</h4>
+              <div class="post_list">
+                  {% for post in posts.items %}
+                      {% include 'post/_post_teaser.html' %}
+                  {% endfor %}
+              </div>
+              <nav aria-label="{{ _('Post pagination') }}" class="mt-4" role="navigation">
+                      {% if post_prev_url %}
+                          <a href="{{ post_prev_url }}" class="btn btn-primary">
+                              <span aria-hidden="true">&larr;</span> {{ _('Previous page') }}
+                          </a>
+                      {% endif %}
+                      {% if post_next_url %}
+                          <a href="{{ post_next_url }}" class="btn btn-primary">
+                              {{ _('Next page') }} <span aria-hidden="true">&rarr;</span>
+                          </a>
+                      {% endif %}
+              </nav>
+            </div>
+          {% else %}
+            <div class="tab-pane border-0 {{ 'active' if replies_prev_url is none }}" id="post_list_tab" role="tabpanel" aria-labelled-by="post-pill">
+              <p>{{ _('No posts yet.') }}</p>
+            </div>
+          {% endif %}
+
+          {% if post_replies %}
+            <div class="tab-pane border-0 {{ 'active' if replies_prev_url is not none }}" id="comments_tab" role="tabpanel" aria-labelled-by="comments-pill">
+              <h4 class="mt-2" id="comments">{{ _('Comments by %(user_name)s', user_name=user.display_name() if user.is_local()  else user.display_name() + ', ' + user.ap_id) }}</h4>
+              <div class="post_list comments">
+                  {% for post_reply in post_replies.items %}
+                      {% with teaser=True %}
+                          {% include 'post/_post_reply_teaser.html' %}
+                      {% endwith %}
+                  {% endfor %}
+              </div>
+              <nav aria-label="{{ _('Comment pagination') }}" class="mt-4" role="navigation">
+                      {% if replies_prev_url %}
+                          <a href="{{ replies_prev_url }}#comments" class="btn btn-primary">
+                              <span aria-hidden="true">&larr;</span> {{ _('Previous page') }}
+                          </a>
+                      {% endif %}
+                      {% if replies_next_url %}
+                          <a href="{{ replies_next_url }}#comments" class="btn btn-primary">
+                              {{ _('Next page') }} <span aria-hidden="true">&rarr;</span>
+                          </a>
+                      {% endif %}
+              </nav>
+            </div>
+          {% else %}
+            <div class="tab-pane border-0 {{ 'active' if replies_prev_url is not none }}" id="comments_tab" role="tabpanel" aria-labelled-by="comments-pill">
+              <p>{{ _('No comments yet.') }}</p>
+            </div>
+          {% endif %}
+
+          {% if archived_post_replies %}
+            <h4 class="mt-2">{{ _('Archived comments') }}</h4>
+            <ul>
+                {% for post_reply in archived_post_replies %}
+                    <li><a href="/post/{{ post_reply.post_id }}#comment_{{ post_reply.post_reply_id }}">{{ post_reply.created_at }}</a></li>
+                {% endfor %}
+            </ul>
+          {% endif %}
+        </div>
+    </main>
+
+    <aside id="side_pane" class="col-12 col-lg-4 side_pane" role="complementary">
+        {% if current_user.is_authenticated and current_user.id == user.id %}
+            <div class="card mb-3">
+                <div class="card-header">
+                     <h2>{{ _('Manage') }}</h2>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-4">
+                            <a class="w-100 btn btn-primary btn-sm" href="/u/{{ user.link() }}/profile">{{ _('Profile') }}</a>
+                        </div>
+                        <div class="col-4">
+                            <a class="w-100 btn btn-primary btn-sm" href="/user/settings">{{ _('Settings') }}</a>
+                        </div>
+                        <div class="col-4">
+                            <a class="w-100 btn btn-primary btn-sm" href="/user/files">{{ _('Files') }}</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+        {% if current_user.is_authenticated and current_user.is_admin_or_staff() %}
+            {% if same_ip_address and len(same_ip_address) -%}
+                <div class="card mb-3">
+                    <div class="card-header"><h2>{{ _("Same IP address") }}</h2></div>
+                    <div class="card-body">
+                        <ul class="list-group list-group-flush">
+                            {% for alt in same_ip_address -%}
+                                <li class="list-group-item">
+                                    {{ render_username(alt) }}
+                                </li>
+                            {% endfor -%}
+                        </ul>
+                    </div>
+                </div>
+            {% endif %}
+        {% endif -%}
+        {% if current_user.is_authenticated and (user_access('ban users', current_user.id) or user_access('manage users', current_user.id)) and user.id != current_user.id %}
+            <div class="card mb-3">
+                <div class="card-header">
+                     <h2>{{ _('Moderate user') }}</h2>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% if user_access('ban users', current_user.id) or user_access('manage users', current_user.id) %}
+                            {% if user.banned %}
+                                <div class="col-4">
+                                    <a class="w-100 btn btn-primary confirm_first send_post" href='#' data-url="/u/{{ user.link() }}/unban">{{ _('Unban') }}</a>
+                                </div>
+                            {% else %}
+                                <div class="col-4">
+                                    <a class="w-100 btn btn-primary" href="/u/{{ user.link() }}/ban">{{ _('Ban') }}</a>
+                                </div>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+        {% if len(subscribed) > 0 or len(moderates) > 0 %}
+            <div class="card mb-3">
+                <div class="card-header">
+                     <h2>{{ _('Communities') }}</h2>
+                </div>
+                <div class="card-body">
+                    {% if len(subscribed) > 0 %}
+                        <h4>{{ _('Member of') }}</h4>
+                        <ul class="list-group list-group-flush">
+                            {% for community in subscribed %}
+                                <li class="list-group-item">
+                                    {{ render_communityname(community) }}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                    {% if len(moderates) > 0 %}
+                        <h4>{{ _('Moderates') }}</h4>
+                        <ul class="list-group list-group-flush">
+                            {% for community in moderates %}
+                                <li class="list-group-item">
+                                    {{ render_communityname(community) }}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+        {% if current_user.is_authenticated and (user.id == current_user.get_id() or current_user.is_admin()) %}
+            <div class="card mb-3">
+                <div class="card-header">
+                     <h2>{{ _('Upvoted') }}</h2>
+                </div>
+                <div class="card-body">
+                    <a href="{{ user.link() }}/upvotes">{{ _('Posts upvoted by %(user_name)s', user_name=user.user_name) }}</a>
+                </div>
+            </div>
+        {% endif %}
+        {% if user_has_public_feeds %}
+            <div class="card mb-3" id="public_feeds">
+                <div class="card-header">
+                     <h2>{{ _('Public Feeds') }}</h2>
+                </div>
+                <div class="card-body">
+                        <ul>
+                            {% for feed in user_public_feeds %}
+                                <li><a href="/f/{{ feed.link() }}">{{ feed.title }}</a></li>
+                            {% endfor %}
+                        </ul>
+                </div>
+            </div>
+        {% endif %}
+    </aside>
+</div>
+{% endblock %}

@@ -1,0 +1,150 @@
+services:
+
+  db:
+    shm_size: 2gb
+    image: postgres:17
+    restart: unless-stopped
+    user: "1000:1000"
+    env_file:
+     - ./.env.docker
+    command:
+      - postgres
+      # Memory
+      - -c
+      - shared_buffers=1GB
+      - -c
+      - effective_cache_size=2GB
+      - -c
+      - work_mem=32MB
+      - -c
+      - maintenance_work_mem=256MB
+
+      # WAL / checkpoints
+      - -c
+      - checkpoint_completion_target=0.9
+      - -c
+      - wal_buffers=16MB
+      - -c
+      - max_wal_size=3GB
+      - -c
+      - min_wal_size=1GB
+
+      # Query planner
+      - -c
+      - random_page_cost=1.1
+      - -c
+      - effective_io_concurrency=200
+
+      # Connections
+      - -c
+      - max_connections=150
+      - -c
+      - jit=off
+    volumes:
+     - ./pgdata:/var/lib/postgresql/data
+    networks:
+      - pf_network
+
+  redis:
+    image: redis:6.2
+    restart: unless-stopped
+    env_file:
+     - ./.env.docker
+    volumes:
+     - redis_data:/data
+    networks:
+      - pf_network
+
+  celery:
+    build:
+      context: .
+      target: builder
+    container_name: piefed_celery1
+    restart: unless-stopped
+    depends_on:
+      - db
+      - redis
+    env_file:
+     - ./.env.docker
+    entrypoint: ./entrypoint_celery.sh
+    volumes:
+     - ./media/:/app/app/static/media/
+     - ./logs/:/app/logs/
+     - ./tmp/:/app/app/static/tmp/
+    networks:
+      - pf_network
+    healthcheck:
+      test: ["CMD", "celery", "-A", "celery_worker_docker.celery", "inspect", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  web:
+    build:
+      context: .
+      target: builder
+    container_name: piefed_app1
+    restart: unless-stopped
+    depends_on:
+      - db
+      - redis
+    env_file:
+     - ./.env.docker
+    volumes:
+     - ./gunicorn.conf.py:/app/gunicorn.conf.py
+     - ./media/:/app/app/static/media/
+     - ./logs/:/app/logs/
+     - ./tmp/:/app/app/static/tmp/
+    ports:
+      - '8030:5000'
+    networks:
+      - pf_network
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "gunicorn"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  piefednotifs:
+    build:
+      context: .
+      target: builder
+    container_name: piefed_notifs
+    restart: unless-stopped
+    depends_on:
+      - redis
+    env_file:
+      - ./.env.docker
+    entrypoint: ./entrypoint_async.sh
+    ports:
+      - "8040:8000"   # host:container, Piefed-Notifs runs on 8000 internally
+    networks:
+      - pf_network
+    healthcheck:
+      test: [ "CMD", "pgrep", "-f", "uvicorn" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+
+  adminer:
+    image: adminer
+    restart: unless-stopped
+    ports:
+      - 8888:8080
+    depends_on:
+      - db
+    networks:
+      - pf_network
+
+
+networks:
+  pf_network:
+    name: pf_network
+    external: false
+
+volumes:
+  redis_data:

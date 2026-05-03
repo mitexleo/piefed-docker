@@ -1,0 +1,23 @@
+{% if theme() != 'piefed' and file_exists('app/templates/themes/' + theme() + '/base.html') -%}
+    {% extends 'themes/' + theme() + '/base.html' -%}
+{% else -%}
+    {% extends "base.html" -%}
+{% endif -%}
+{% from 'bootstrap5/form.html' import render_field %}
+{% from "_macros.html" import render_username, render_communityname, render_feedname -%}
+
+{% block app_content %}
+<div class="row">
+    <main class="col-12 col-lg-8 position-relative main_pane">
+        {% include "post/_breadcrumb_nav.html" %}
+        <h1 class="mt-2">{{ _('Cross-post %(post_name)s', post_name=post.title) }}</h1>
+        <form method="post">
+            {{ form.csrf_token() }}
+            {{ render_field(form.which_community) }}
+            <datalist id="community_suggestions"></datalist>
+            {{ render_field(form.submit) }}
+        </form>
+    </main>
+</div>
+
+{% endblock %}

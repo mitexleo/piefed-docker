@@ -1,0 +1,49 @@
+{% if theme() != 'piefed' and file_exists('app/templates/themes/' + theme() + '/base.html') -%}
+    {% extends 'themes/' + theme() + '/base.html' -%}
+{% else -%}
+    {% extends "base.html" -%}
+{% endif -%}
+{% from 'bootstrap5/form.html' import render_form %}
+
+{% block extra_css %}
+    <link href="{{ url_for('static', filename='js/tomselect/tom-select.css') }}" type="text/css" rel="stylesheet" />
+{% endblock %}
+
+{% block app_content %}
+<script src="/static/js/coolfieldset.js?v=4" nonce={{ nonce }}></script>
+<div class="row">
+    <div class="col mx-auto">
+        <div class="card mt-5" style="width: 500px; max-width: 100%;">
+            <div class="card-body p-6">
+                <div class="card-title">{{ _('Search for...') }}</div>
+                {% include "search/_search_form.html" %}
+                <h6 class="mt-3">{{ _('Example searches:') }} </h6>
+                <table class="table">
+                    <tr>
+                        <td nowrap="nowrap"><p>{{ _('star wars') }}</p></td>
+                        <td><p>{{ _('There is an implied "and" here. Results will have both words somewhere in them.') }}</p></td>
+                    </tr>
+                    <tr>
+                        <td nowrap="nowrap"><p>{{ _('star or wars') }}</p></td>
+                        <td><p>{{ _('This will broaden the search to include results that contain any of the words.') }}</p></td>
+                    </tr>
+                    <tr>
+                        <td nowrap="nowrap"><p>{{ _('star -wars') }}</p></td>
+                        <td><p>{{ _('To search for things containing "star" but not "wars" you can put a - before the word you want to exclude.') }}</p></td>
+                    </tr>
+                    <tr>
+                        <td nowrap="nowrap"><p>{{ _('"star wars"') }}</p></td>
+                        <td><p>{{ _('Results will have exactly that phrase in them.') }}</p></td>
+                    </tr>
+                </table>
+                {% if default_user_add_remote or (is_staff or is_admin) %}
+                    <h6 class="mt-5">{{ _('Trying to add a community or post from another instance?') }} </h6>
+                    <p>{{ _('In many types of federated platforms you can put a URL of a post or community into the search in order to add it to your local instance. In PieFed the search is just for searching.') }}</p>
+                    <p><a href="{{ url_for('community.add_remote') }}" class="btn btn-primary">{{ _('Add remote community') }}</a></p>
+                    <p><a href="{{ url_for('search.retrieve_remote_post') }}" class="btn btn-primary">{{ _('Retrieve remote post') }}</a></p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

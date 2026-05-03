@@ -1,0 +1,64 @@
+{% if theme() != 'piefed' and file_exists('app/templates/themes/' + theme() + '/base.html') -%}
+    {% extends 'themes/' + theme() + '/base.html' -%}
+{% else -%}
+    {% extends "base.html" -%}
+{% endif -%}
+{% from 'bootstrap5/form.html' import render_form %}
+{% set active_child = 'settings' %}
+
+{% block app_content %}
+
+<div class="row">
+    <main class="col-12 col-lg-8 position-relative main_pane">
+        <nav class="mb-2"  id="breadcrumb_nav" title="{{ _('Navigation') }}">
+          <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/">{{ _('Home') }}</a></li>
+            <li class="breadcrumb-item"><a href="/u/{{ user.link() }}">{{ user.display_name() }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ _('Follow on remote instance') }}</li>
+          </ol>
+        </nav>
+        <h1>{{ _('Follow on remote instance') }}</h1>
+        <p>{{ _('We are about to send you to your instance where you will then need to click the "Follow" button.') }}</p>
+        {{ render_form(form) }}
+
+        {% if send_to %}
+        <div id="redirectMessage"></div>
+        <script defer nonce="{{ nonce }}">
+            window.addEventListener("load", function () {
+                var redirectTimeout;
+                var cookieName = "remote_instance_url";
+                var redirectURL = getCookie(cookieName);
+
+                if (redirectURL) {
+                    var redirectMessageDiv = document.getElementById('redirectMessage');
+
+                    // Add message to the div
+                    redirectMessageDiv.textContent = "Redirecting to: " + redirectURL + " in 5 seconds...";
+
+                    // Cancel button
+                    var cancelButton = document.createElement('button');
+                    cancelButton.textContent = "Cancel";
+                    cancelButton.addEventListener('click', cancelRedirect);
+                    // Append cancel button to the div
+                    redirectMessageDiv.appendChild(cancelButton);
+
+                    // Set timeout and store the timeout ID
+                    redirectTimeout = setTimeout(function() {
+                        window.location.href = 'https://' + redirectURL + '/@{{ user.link() }}@{{ current_app.config["SERVER_NAME"] }}';
+                    }, 5000);
+                }
+
+                // Function to cancel redirect
+                function cancelRedirect() {
+                    // Clear the timeout
+                    clearTimeout(redirectTimeout);
+                    var redirectMessageDiv = document.getElementById('redirectMessage');
+                    redirectMessageDiv.textContent = "Redirect cancelled.";
+                }
+            });
+
+        </script>
+        {% endif %}
+  </main>
+</div>
+{% endblock %}

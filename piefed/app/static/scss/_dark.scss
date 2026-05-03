@@ -1,0 +1,42 @@
+@import "colours";
+@import "layout";
+
+@media (prefers-color-scheme: dark) {
+
+  body {
+    background-color: $whitesmoke;
+  }
+
+  body nav.navbar {
+    background-color: $whitesmoke !important;
+  }
+
+  .card {
+    background-color: $whitesmoke;
+  }
+
+  .form-control, .dark-form-control {
+    border: $px1 solid $blue-rgba;
+    border-radius: var(--spacing-4);
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    padding: var(--spacing-8) var(--spacing-12);
+    font-size: $fs0x9375rem;
+  }
+
+  .form-control::placeholder {
+    color: $white;
+  }
+
+  .dropdown-menu {
+    background-color: $light-grey;
+  }
+
+  .dropdown-header {
+    color: $white;
+  }
+
+  .table td {
+    border-top-color: $darker-grey;
+  }
+
+}

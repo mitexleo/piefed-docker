@@ -1,0 +1,92 @@
+$min-touch-target: 44px; // many instances of this size referenced in styles.scss as a width and height
+
+.form-check-input {
+  margin-top: 0;
+}
+
+.form-group {
+  display: block;
+
+  .text-nowrap, .form-check-inline, .fix-radio-align {
+    input[type=number] {
+      vertical-align: inherit;
+    }
+  }
+}
+
+.btn-group.btn-group.me-lg-1 {
+	display: flex;
+	position: relative;
+	align-items: center;
+}
+
+.form-control-label {
+    display: block;
+    margin-bottom: var(--spacing-4);
+    font-weight: 600;
+}
+
+.form-control {
+  display: block;
+  width: 100%;
+  padding: var(--spacing-8) var(--spacing-12);
+  font-size: $fs0x9375rem;
+  line-height: var(--spacing-24);
+  color: var(--bs-body-color);
+  background-color: $white;
+  background-clip: padding-box;
+  border: var(--border-1) solid $blue-rgba;
+  border-radius: var(--spacing-4);
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.form-control::file-selector-button {
+  padding: var(--spacing-8) var(--spacing-12);
+  margin: calc(-1 * var(--spacing-8)) calc(-1 * var(--spacing-12));
+  margin-inline-end: var(--spacing-12);
+}
+
+.form-select {
+  padding: var(--spacing-8) var(--spacing-12) !important;
+}
+
+.ts-wrapper.form-select + .ts-control {
+  padding: var(--spacing-8) var(--spacing-12) !important;
+  background-color: #424549 !important;
+  color: #eee !important;
+}
+
+.ts-control {
+    padding: 0;
+}
+
+.form-control:focus {
+    color: var(--bs-body-color);
+    background-color: $white;
+    border-color: $blue-mid;
+    outline: 0;
+    box-shadow: 0 0 0 var(--spacing-2) $blue-rgba-02;
+}
+
+.btn-secondary {
+  color: $white;
+  background-color: $blue-bright;
+  border-color: $blue-bright;
+
+  &:hover {
+    color: $white;
+    background-color: $primary-colour;
+    border-color: $primary-colour;
+  }
+}
+
+.table-striped tbody tr .current_sort,
+.table-striped thead th.current_sort {
+  background-color: $white-fade;
+
+}
+
+.table-striped tbody tr:nth-of-type(2n+1) .current_sort {
+  background-color: $blue-light;
+
+}

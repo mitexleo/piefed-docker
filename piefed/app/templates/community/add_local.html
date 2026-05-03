@@ -1,0 +1,58 @@
+{% if theme() != 'piefed' and file_exists('app/templates/themes/' + theme() + '/base.html') -%}
+    {% extends 'themes/' + theme() + '/base.html' -%}
+{% else -%}
+    {% extends "base.html" -%}
+{% endif -%}
+{% from 'bootstrap5/form.html' import render_field %}
+
+{% block app_content %}
+    <div class="row">
+        <div class="col col-login mx-auto">
+            <div class="card mt-5">
+                <div class="card-body p-6">
+                    <div class="card-title">{{ _('Create community') }}</div>
+                    <form method="post" enctype="multipart/form-data" id="add_local_community_form" role="form">
+                        {{ form.csrf_token() }}
+                        {{ render_field(form.community_name) }}
+                        <div class="form-group">{{ form.url.label(class_="form-control-label required") }}
+                            /c/{{ form.url(class_="form-control", maxlength=255) }}
+                            {% for error in form.url.errors %}
+                            <br><span style="color: red;">[{{ error }}]</span>
+                            {% endfor %}
+                        </div>
+                        {{ render_field(form.description) }}
+                        {{ render_field(form.posting_warning) }}
+                        <small class="field_hint">{{ _('This is shown above the field where people compose their content. Only use this if really necessary.') }}</small>
+                        {{ render_field(form.icon_file) }}
+                        <small class="field_hint">{{ _('Provide a square image that looks good when small. SVG is allowed.') }}</small>
+                        {{ render_field(form.banner_file) }}
+                        <small class="field_hint">{{ _('Provide a wide image - letterbox orientation.') }}</small>
+                        {{ render_field(form.theme) }}
+                        <small class="field_hint">{{ _('If you want to make your own theme,') }} <a href="https://codeberg.org/rimu/pyfedi/src/branch/main/docs/developer_docs/09_Theming_Guide.md">{{ _('learn how to do it here ') }}</a>{{ _('and propose it to our ') }} <a href="https://codeberg.org/rimu/pyfedi">{{ _('Codeberg repository') }}</a>. </small>
+                        {{ render_field(form.nsfw) }}
+                        {{ render_field(form.publicize) }}
+                        <small class="field_hint">{{ _('Do not publicize test communities.') }}</small>
+                        {{ render_field(form.question_answer) }}
+                        <small class="field_hint">{{ _('Comments can be designated as the answer.') }}</small>
+                        {{ render_field(form.languages) }}
+                        <fieldset class="coolfieldset mb-4 mt-4">
+                            <legend>{{ _('Access control') }}</legend>
+                            <div id="local_only_field">
+                                {{ render_field(form.local_only) }}
+                                <small class="field_hint">{{ _('Only people using %(name)s can post or reply', name=current_app.config['SERVER_NAME']) }}.</small>
+                            </div>
+                            <div id="private_field">
+                                {{ render_field(form.private) }}
+                                <small class="field_hint">{{ _('Private communities do not federate and are only visible to members') }}.</small>
+                            </div>
+                            <div id="invitations_field">
+                                {{ render_field(form.invitations) }}
+                            </div>
+                        </fieldset>
+                        {{ render_field(form.submit) }}
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

@@ -1,0 +1,554 @@
+@import "_layout.scss";
+
+$fs0x95rem: 0.95rem; // body styles.scss
+$fs12px: 12px; // one in styles.scss, communities_table
+$fs13px: 13px; // muted and p font style
+$fs14px: 14px; // line-height styles.scss, voting_buttons
+$fs17px: 17px; // emoji font size styles.scss
+$fs18px: 18px;
+$fs28px: 28px; // fe::before 
+$fs30px: 30px; // line height in _compact
+$fs40px: 40px;
+$fs52px: 52px; // fe-discussion, fe-poll, fe-link
+$fs64px: 64px; // fe-video
+
+// note there is a named font size "x-large" for missing_thumbnail
+
+$fs0x9375rem: 0.9375rem; // _controls.scss form-control, _dark form-control (Duplicate?)
+$fs1x2rem: 1.2rem; // styles.scss font-size
+$fs1x25rem: 1.25rem; // styles.scss
+$fs1x45rem: 1.45rem; // styles.scss
+$fs1x5rem: 1.5rem; // _compact.scss
+
+$fs0x8em: 0.8em; // styles.scss emoji_alt_code
+$fs1em: 1em; // i (italics)
+$fs1x0317em: 1.0317em; // styles.scss, message_reaction_count line height
+
+// values in styles.scss
+$h1: 2rem;
+$h2: 1.8rem;
+$h3: 1.6rem;
+$h3post: 110%;
+$h4: 1.25rem;
+// no h5 size specified
+$h6: 1rem;
+$h-letterspacing: -0.2px; // in styles.scss
+
+$small_text: 87%; // existing variable, moved to the top DUPLICATE
+
+$fs73pc: 73%; // domain_link, post_flair
+$fs80pc: 80%; // a at different break points, blocked, upvote, downvote
+$fs87pc: 87%; // breadcrumb_nav at different break points, comment_time, notify_toggle, user_flair, user_note, side_pane
+$fs90pc: 90%; // post_flair, message_reaction_count
+$fs93pc: 93%; // _compact button, _compact post_utilities_bar
+$fs95pc: 95%; // blockquote
+$fs120pc: 120%;
+$fs140pc: 140%; // card-title
+$fs150pc: 150%; // .fe
+
+/* for more info about the feather font used for icons see https://at-ui.github.io/feather-font/ */
+/* use https://fontdrop.info/ to get the unicode values of the feather.ttf file */
+@font-face {
+  font-family: 'Feather';
+  src: url('/static/fonts/feather/feather.woff') format('woff'),
+  url('/static/fonts/feather/feather.ttf') format('truetype'),
+  url('/static/fonts/feather/feather.svg#Feather') format('svg');
+  font-weight: normal;
+  font-style: normal;
+}
+
+.fe {
+  font-family: 'Feather' !important;
+  speak: none;
+  font-style: normal;
+  font-weight: normal;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.dropdown-item .fe {
+  padding-right: var(--spacing-4);
+}
+
+.fe-link-diagonal::before {
+  content: "\e982";
+}
+
+.fe-subscription::before {
+  content: "\e9b9";
+}
+
+.fe-join::before {
+  content: "\e988";
+}
+
+.fe-leave::before {
+  content: "\e989";
+}
+
+.fe-fb::before {
+  content: "\E95E";
+}
+
+.fe-close::before {
+  content: "\ea03";
+}
+
+.fe-embed::before {
+  content: "\e940";
+}
+
+.fe-source::before {
+  content: "\e964";
+}
+
+.fe-external::before {
+  content: "\e95b";
+}
+
+.fe-external-noimg::before {
+  font-size: $fs40px;
+  float: right;
+  position: relative;
+  top: var(--spacing-12);
+}
+
+.fe-circle::before {
+  content: "\e937";
+}
+
+.fe-sticky::before {
+  content: "\e9fc";
+}
+
+.fe-unsticky::before {
+  content: "\e9fd";
+}
+
+.fe-lock::before {
+  content: "\e987";
+}
+
+.fe-unlock::before {
+  content: "\e9ee";
+}
+
+.fe-home::before {
+  content: "\e979";
+}
+
+.fe-communities::before {
+  content: "\e9f6";
+}
+
+.fe-explore::before {
+  content: "\e943";
+}
+
+.fe-popular::before {
+  content: "\e9e6";
+}
+
+.fe-all::before {
+  content: "\e986";
+}
+
+.fe-reminder::before {
+  content: "\e939";
+}
+
+.fe-activity::before {
+  content: "\e900";
+}
+
+.fe-copy::before {
+  content: "\e944";
+}
+
+.fe-edit::before {
+  content: "\e958";
+}
+
+.fe-plus::before {
+    content: "\e9b1";
+}
+
+.fe-wind::before {
+    content: "\ea01";
+}
+
+.fe-refresh-cw::before {
+    content: "\e9b9";
+}
+
+.fe-x-circle::before {
+  content: "\ea03";
+}
+
+.fe-printer::before {
+    content: "\e9b6";
+}
+
+.fe-search::before {
+    content: "\e9c1";
+}
+
+.fe-check::before {
+    content: "\e92b";
+}
+
+.fe-read::before {
+    content: "\e92c";
+}
+
+.fe-user::before {
+    content: "\e9f1";
+}
+
+.fe-heart::before {
+    content: "\e977";
+}
+
+.fe-message-circle::before {
+    content: "\e990";
+}
+
+.fe-settings::before {
+    content: "\e9c4";
+}
+
+.fe-calendar::before {
+  content: "\e927";
+}
+
+.fe-facebook::before {
+  content: "\e95e";
+}
+
+.fe-share::before {
+  content: "\e9c2";
+}
+
+.fe-chevron-up::before {
+  content: "\e931";
+}
+
+.fe-chevron-down::before {
+  content: "\e92e";
+}
+
+.fe-chevron-right::before {
+  content: "\e930";
+}
+
+.fe-star::before {
+  content: "\e9d5";
+}
+
+.fe-feather::before {
+  content: "\e960";
+}
+
+.fe-mobile::before {
+  content: "\e9d2";
+}
+
+.fe-loader::before {
+  content: "\e986";
+}
+
+.fe-sun::before {
+  content: "\e9d7";
+}
+
+.fe-warning::before {
+  content: "\e904";
+}
+
+.fe-arrow-up::before {
+  content: "\e914";
+  font-weight: normal;
+}
+
+.fe-arrow-up-circle::before {
+  content: "\e915";
+  font-weight: normal;
+}
+
+.fe-arrow-down::before {
+  content: "\e90c";
+  font-weight: normal;
+}
+
+.fe-arrow-down-circle::before {
+  content: "\e90d";
+  font-weight: normal;
+}
+
+.fe-reply {
+  margin-top: 1px;
+}
+
+.fe-reply::before {
+  content: "\e990";
+}
+
+.fe-discussion::before {
+  content: "\e991";
+}
+
+.fe-label::before {
+  content: "\e9db";
+}
+
+.fe-link::before {
+  content: "\e991";
+}
+
+.fe-layers {
+  position: relative;
+}
+
+.fe-layers::before {
+  content: "\e97f";
+}
+
+.fe-report::before {
+  content: "\e967";
+}
+
+.fe-angles-down::before {
+  content: "\e932";
+}
+
+.fe-angles-up::before {
+  content: "\e935";
+}
+
+.fe-options::before {
+  content: "\e99b";
+}
+
+.fe-edit::before {
+  content: "\e95a";
+}
+
+.fe-delete::before {
+  content: "\ea03";
+}
+
+.fe-mea-culpa::before {
+  content: "\e997";
+}
+
+.fe-block::before {
+  content: "\ea04";
+}
+
+.fe-report::before {
+  content: "\e967";
+}
+
+.fe-bell, .fe-no-bell {
+  position: relative;
+  top: 1px;
+}
+.fe-bell::before {
+  content: "\e91e";
+}
+
+.fe-no-bell::before {
+  content: "\e91f";
+}
+
+.fe-sun::before {
+  content: "\e9d7";
+}
+
+.fe-moon::before {
+  content: "\e99a";
+}
+
+.fe-collapse::before {
+  content: "\e995";
+}
+
+.fe-bookmark::before {
+  content: "\e924";
+}
+
+.fe-expand::before {
+  content: "\e98e";
+}
+
+h1 {
+  .fe-bell, .fe-no-bell {
+    font-size: $fs18px;
+    top: calc(-1 * var(--spacing-4));
+    left: var(--spacing-12);
+  }
+}
+
+.fe-magnify {
+  position: relative;
+  top: 1px;
+}
+
+.fe-magnify::before {
+  content: "\ea08";
+}
+
+.fe-distinguished::before {
+  content: "\e9c7";
+}
+
+.imageVisible {
+  .fe-magnify::before {
+    content: "\ea09";
+  }
+}
+
+.fe-rss::before {
+  content: "\e9be";
+}
+
+.fe-rules::before {
+  content: "\e907";
+}
+
+.fe-add-person::before {
+  content: "\e9f2";
+}
+
+.fe-remove-person::before {
+  content: "\e9f3";
+}
+
+.fe-cross-post::before {
+  content: "\e9ba";
+}
+
+.fe-image {
+  position: relative;
+  top: 2px;
+
+  &:before {
+    content: "\e97a";
+  }
+}
+
+.fe-new-account {
+  position: relative;
+  top: 1px;
+  &:before {
+    content: "\e986";
+  }
+}
+
+.fe-bot-account {
+  position: relative;
+  top: 1px;
+  &:before {
+    content: "\e94d";
+  }
+}
+
+.fe-translate {
+  &:before {
+    content: "\e972";
+  }
+}
+
+.fe-move {
+  &:before {
+    content: "\e95f";
+  }
+}
+
+.fe-video {
+  position: relative;
+  top: 2px;
+  &:before {
+    content: "\ea05";
+  }
+}
+
+.fe-audio {
+  position: relative;
+  top: 1px;
+  &:before {
+    content: "\e9fc";
+  }
+}
+
+.fe-poll {
+  position: relative;
+  top: 2px;
+  &:before {
+    content: "\e91b"; /* possibly e985 */
+  }
+}
+
+.fe-event {
+  position: relative;
+  top: 1px;
+  &:before {
+    content: "\e927";
+  }
+}
+
+.fe-sticky-left::before {
+  position: relative;
+  top: 2px;
+  content: "\e934";
+}
+
+.fe-sticky-right::before {
+  position: relative;
+  top: 2px;
+  content: "\e933";
+}
+
+.fe-hide::before {
+  content: "\e9d0";
+}
+
+.fe-answer::before {
+  content: "\e92b";
+  color: var(--bs-form-valid-border-color);
+  font-size: $fs150pc;
+  position: relative;
+  display: flex;
+}
+
+.fe-unanswer::before {
+  content: "\ea02";
+  color: var(--bs-danger);
+  font-size: $fs150pc;
+  position: relative;
+  display: flex;
+}
+
+
+a.no-underline {
+  text-decoration: none;
+  &:hover {
+    text-decoration: none;
+  }
+}
+
+.small, small {
+  font-size: $small_text;
+}
+
+fieldset legend {
+  font-size: inherit;
+}
+
+.form-control::placeholder {
+  color: rgba(var(--bs-secondary-color-rgb), $opacity-05);
+  font-style: italic;
+}

@@ -1,0 +1,311 @@
+# =============================================================================
+# PieFed Docker Compose
+# =============================================================================
+# Deployment: docker compose up -d
+# View logs:   docker compose logs -f
+# Stop:        docker compose down
+#
+# First-time setup:
+#   1. Change SERVER_NAME to your domain
+#   2. Generate SECRET_KEY: openssl rand -base64 32
+#   3. Optionally set ADMIN_USERNAME, ADMIN_EMAIL, ADMIN_PASSWORD
+#   4. Run: docker compose up -d
+#   5. Visit http://<your-domain>:8030
+# =============================================================================
+
+services:
+
+  # ===========================================================================
+  # PostgreSQL Database
+  # ===========================================================================
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    shm_size: 2gb
+    user: "1000:1000"
+    environment:
+      POSTGRES_USER: piefed
+      POSTGRES_PASSWORD: piefed
+      POSTGRES_DB: piefed
+    command:
+      - postgres
+      # Memory
+      - -c
+      - shared_buffers=1GB
+      - -c
+      - effective_cache_size=2GB
+      - -c
+      - work_mem=32MB
+      - -c
+      - maintenance_work_mem=256MB
+      # WAL / checkpoints
+      - -c
+      - checkpoint_completion_target=0.9
+      - -c
+      - wal_buffers=16MB
+      - -c
+      - max_wal_size=3GB
+      - -c
+      - min_wal_size=1GB
+      # Query planner
+      - -c
+      - random_page_cost=1.1
+      - -c
+      - effective_io_concurrency=200
+      # Connections
+      - -c
+      - max_connections=150
+      - -c
+      - jit=off
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - piefed_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U piefed"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================================================
+  # Redis - Cache & Message Broker
+  # ===========================================================================
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - piefed_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================================================
+  # Web - Gunicorn (Flask App)
+  # ===========================================================================
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mitexleo/piefed-docker:latest
+    container_name: piefed_app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # === REQUIRED ===
+      SERVER_NAME: "127.0.0.1:8030"
+      # Generate with: openssl rand -base64 32
+      SECRET_KEY: "change-me-to-a-random-string-at-least-32-chars"
+
+      # === Database ===
+      DATABASE_URL: "postgresql+psycopg2://piefed:piefed@db/piefed"
+
+      # === Cache & Queue ===
+      CACHE_TYPE: "RedisCache"
+      CACHE_REDIS_DB: 1
+      CACHE_REDIS_URL: "redis://redis:6379/0"
+      CELERY_BROKER_URL: "redis://redis:6379/1"
+
+      # === ActivityPub ===
+      HTTP_PROTOCOL: "http"
+      FULL_AP_CONTEXT: 0
+      ENABLE_ALPHA_API: "true"
+      CORS_ALLOW_ORIGIN: "*"
+
+      # === Admin User (first-run only) ===
+      ADMIN_USERNAME: ""
+      ADMIN_EMAIL: ""
+      ADMIN_PASSWORD: ""
+
+      # === Scoring ===
+      SPICY_UNDER_10: 2.5
+      SPICY_UNDER_30: 1.85
+      SPICY_UNDER_60: 1.25
+
+      # === Pagination ===
+      PAGE_LENGTH: 100
+
+      # === Gunicorn ===
+      GUNICORN_WORKERS: 2
+      GUNICORN_THREADS: 2
+      LOG_LEVEL: "info"
+
+      # === Media ===
+      MEDIA_IMAGE_MAX_DIMENSION: 2000
+      MEDIA_IMAGE_QUALITY: 90
+      MEDIA_IMAGE_THUMBNAIL_FORMAT: "WEBP"
+      MEDIA_IMAGE_THUMBNAIL_QUALITY: 93
+      MEDIA_IMAGE_MEDIUM_FORMAT: "JPEG"
+      MEDIA_IMAGE_MEDIUM_QUALITY: 90
+      FILE_UPLOAD_QUOTA: 52428800
+
+      # === Redis Memory Limit ===
+      REDIS_MEMORY_LIMIT: 200000000
+
+      # === Session ===
+      SESSION_COOKIE_SECURE: 0
+      SESSION_COOKIE_HTTPONLY: 1
+
+      # === Optional: Mail ===
+      # MAIL_SERVER: "smtp.example.com"
+      # MAIL_PORT: 587
+      # MAIL_USE_TLS: 1
+      # MAIL_USERNAME: "noreply@example.com"
+      # MAIL_PASSWORD: "your-password"
+      # MAIL_FROM: "noreply@example.com"
+
+      # === Optional: Notifications Server (uncomment when using notifs service) ===
+      # NOTIF_SERVER: "http://notifs:8000"
+
+      # === Optional: Sentry ===
+      # SENTRY_DSN: "https://..."
+
+      # === Optional: S3 Storage ===
+      # S3_REGION: ""
+      # S3_ENDPOINT: ""
+      # S3_BUCKET: ""
+      # S3_ACCESS_KEY: ""
+      # S3_ACCESS_SECRET: ""
+      # S3_PUBLIC_URL: ""
+
+      # === Optional: Cloudflare ===
+      # CLOUDFLARE_API_TOKEN: ""
+      # CLOUDFLARE_ZONE_ID: ""
+
+      # === Optional: Stripe ===
+      # STRIPE_SECRET_KEY: ""
+      # STRIPE_PUBLISHABLE_KEY: ""
+      # STRIPE_MONTHLY_SMALL: ""
+      # STRIPE_MONTHLY_BIG: ""
+
+      # === Optional: LDAP ===
+      # LDAP_SERVER: ""
+      # LDAP_PORT: 389
+      # LDAP_USE_SSL: 0
+      # LDAP_USE_TLS: 0
+      # LDAP_BASE_DN: ""
+      # LDAP_READ_ENABLE: 0
+
+      # === Optional: OAuth ===
+      # GOOGLE_OAUTH_CLIENT_ID: ""
+      # GOOGLE_OAUTH_SECRET: ""
+      # MASTODON_OAUTH_CLIENT_ID: ""
+      # MASTODON_OAUTH_SECRET: ""
+      # MASTODON_OAUTH_DOMAIN: ""
+      # DISCORD_OAUTH_CLIENT_ID: ""
+      # DISCORD_OAUTH_SECRET: ""
+
+      # === Optional: Translation ===
+      # TRANSLATE_ENDPOINT: ""
+      # TRANSLATE_KEY: ""
+
+      # === Optional: Content Moderation ===
+      # CONTENT_WARNING: 0
+      # ALLOW_AI_CRAWLERS: 0
+
+    volumes:
+      - media_data:/app/app/static/media
+      - logs_data:/app/logs
+      - tmp_data:/app/app/static/tmp
+    ports:
+      - "8030:5000"
+    networks:
+      - piefed_network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # ===========================================================================
+  # Celery Worker - Background Tasks
+  # ===========================================================================
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mitexleo/piefed-docker:latest
+    container_name: piefed_celery
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SERVER_NAME: "127.0.0.1:8030"
+      SECRET_KEY: "change-me-to-a-random-string-at-least-32-chars"
+      DATABASE_URL: "postgresql+psycopg2://piefed:piefed@db/piefed"
+      CACHE_TYPE: "RedisCache"
+      CACHE_REDIS_DB: 1
+      CACHE_REDIS_URL: "redis://redis:6379/0"
+      CELERY_BROKER_URL: "redis://redis:6379/1"
+      HTTP_PROTOCOL: "http"
+      FULL_AP_CONTEXT: 0
+      CELERY_CONCURRENCY: 4
+      CELERY_QUEUES: "celery,background,send"
+      LOG_LEVEL: "info"
+      REDIS_MEMORY_LIMIT: 200000000
+    entrypoint: ./entrypoint_celery.sh
+    volumes:
+      - media_data:/app/app/static/media
+      - logs_data:/app/logs
+      - tmp_data:/app/app/static/tmp
+    networks:
+      - piefed_network
+    healthcheck:
+      test: ["CMD", "celery", "-A", "celery_worker_docker.celery", "inspect", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ===========================================================================
+  # Notifications Server - FastAPI/SSE
+  # ===========================================================================
+  notifs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mitexleo/piefed-docker:latest
+    container_name: piefed_notifs
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      CACHE_REDIS_URL: "redis://redis:6379/0"
+      CACHE_REDIS_DB: 1
+      NOTIF_PORT: 8000
+      LOG_LEVEL: "info"
+    entrypoint: ./entrypoint_notifs.sh
+    ports:
+      - "8040:8000"
+    networks:
+      - piefed_network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+networks:
+  piefed_network:
+    name: piefed_network
+    external: false
+
+volumes:
+  pgdata:
+  redis_data:
+  media_data:
+  logs_data:
+  tmp_data:
