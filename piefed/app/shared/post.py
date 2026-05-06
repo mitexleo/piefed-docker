@@ -392,6 +392,8 @@ def edit_post(input, post: Post, type, src, user=None, auth=None, uploaded_file=
             post.type = POST_TYPE_VIDEO
         elif is_video_url(post.url):
             post.type = POST_TYPE_VIDEO
+        elif is_image_url(post.url):
+            post.type = POST_TYPE_IMAGE
 
     if scheduled_for:
         date_with_tz = post.scheduled_for.replace(tzinfo=ZoneInfo(post.timezone))
@@ -818,9 +820,15 @@ def report_post(post: Post, input, src, auth=None):
         'orig_post_body': post.body
     }
     # report.type 1 = 'post'
-    report = Report(reasons=reason[:255], description=description[:255], type=1, reporter_id=reporter_user.id, suspect_post_id=post.id,
+    report = Report(reasons=reason[:255],
+                    description=description[:255],
+                    type=REPORT_TYPE_POST,
+                    reporter_id=reporter_user.id,
+                    suspect_post_id=post.id,
                     suspect_community_id=post.community_id,
-                    suspect_user_id=post.user_id, in_community_id=post.community_id, source_instance_id=reporter_user.instance_id,
+                    suspect_user_id=post.user_id,
+                    in_community_id=post.community_id,
+                    source_instance_id=reporter_user.instance_id,
                     targets=targets_data)
     db.session.add(report)
 
