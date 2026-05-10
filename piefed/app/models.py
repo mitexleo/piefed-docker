@@ -93,6 +93,7 @@ class Instance(db.Model):
     gone_forever = db.Column(db.Boolean, default=False)  # True once this instance is considered offline forever - never start trying again (12 days offline)
     ip_address = db.Column(db.String(50))
     trusted = db.Column(db.Boolean, default=False, index=True)
+    silenced = db.Column(db.Boolean, default=False, index=True)
     posting_warning = db.Column(db.String(512))
     nodeinfo_href = db.Column(db.String(100))
     admin_note = db.Column(db.Text)
@@ -787,6 +788,15 @@ class Community(db.Model):
 
         return humanize_number(subscribers)
 
+    def has_poster(self, user) -> bool:
+        post_reply_count = 0
+        post_count = db.session.execute(text('SELECT count(*) as c FROM "post" WHERE community_id = :community_id AND user_id = :user_id'),
+                                        {'community_id': self.id, 'user_id': user.id}).scalar_one_or_none()
+        if not post_count:
+            post_reply_count = db.session.execute(text('SELECT count(*) as c FROM "post_reply" WHERE community_id = :community_id AND user_id = :user_id'),
+                                                  {'community_id': self.id, 'user_id': user.id}).scalar_one_or_none()
+        return post_count or post_reply_count
+
     def notify_new_posts(self, user_id: int) -> bool:
         existing_notification = db.session.query(NotificationSubscription).\
             filter(NotificationSubscription.entity_id == self.id,
@@ -1015,6 +1025,7 @@ class User(UserMixin, db.Model):
     password_updated_at = db.Column(db.DateTime, default=utcnow)
     code_style = db.Column(db.String(25), default='fruity')
     admin_note = db.Column(db.Text)
+    page_length = db.Column(db.Integer)
 
     avatar = db.relationship('File', lazy='joined', foreign_keys=[avatar_id], single_parent=True, cascade="all, delete-orphan")
     cover = db.relationship('File', lazy='joined', foreign_keys=[cover_id], single_parent=True, cascade="all, delete-orphan")
@@ -2213,7 +2224,7 @@ class Post(db.Model):
         # Handle file deletions from disk before cascade deletes the File records
         if self.image_id and self.image:
             self.image.delete_from_disk(purge_cdn=False)
-        if self.type == POST_TYPE_VIDEO and _store_files_in_s3() and self.url.startswith(f'https://{current_app.config["S3_PUBLIC_URL"]}'):
+        if self.type == POST_TYPE_VIDEO and _store_files_in_s3() and self.url and self.url.startswith(f'https://{current_app.config["S3_PUBLIC_URL"]}'):
             from app.shared.tasks.maintenance import delete_from_s3
             if current_app.debug:
                 delete_from_s3([self.url])
