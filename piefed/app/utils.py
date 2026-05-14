@@ -1925,7 +1925,7 @@ def reply_is_just_link_to_gif_reaction(body) -> bool:
         return False
 
 
-def reply_is_stupid(body) -> bool:
+def reply_is_low_effort(body) -> bool:
     lower_body = body.lower().strip()
     if lower_body == 'this' or lower_body == 'this.' or lower_body == 'this!':
         return True
@@ -4423,7 +4423,6 @@ def log_cron_task_to_db(task_name: str):
 
 
 def display_back_button():
-    return 'display_back_button'
     ua = request.user_agent.string or ""
     if "iPhone" in ua or "iPad" in ua or "iPod" in ua:
         if request.referrer and request.referrer.startswith(current_app.config['SERVER_URL']):
