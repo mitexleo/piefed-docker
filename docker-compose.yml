@@ -172,9 +172,8 @@ services:
       # For Backblaze B2:
       #   1. Create a bucket (set to public)
       #   2. Create an Application Key (master key does NOT work with S3 API)
-      #   3. Endpoint is s3.<region>.backblazeb2.com (find it in bucket properties)
-      #   4. S3_PUBLIC_URL for B2 native: f<xxx>.backblazeb2.com/file/<bucket>
-      #      Or use custom domain: <your-domain.com>
+      #   3. S3_ENDPOINT: https://s3.<region>.backblazeb2.com
+      #   4. S3_PUBLIC_URL: <bucket>.s3.<region>.backblazeb2.com   (virtual-hosted style)
       #   5. B2 buckets are versioned by default (cannot be turned off)
       #
       # S3_REGION: ""
