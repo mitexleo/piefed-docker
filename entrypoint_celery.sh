@@ -6,7 +6,7 @@ echo "  PieFed - Starting Celery Worker"
 echo "========================================="
 
 # Fix permissions on volume mounts so the python user can write to them
-chown -R python:python /app/logs /app/app/static/media /app/app/static/tmp
+chown -R 1000:1000 /app/logs /app/app/static/media /app/app/static/tmp
 
 export FLASK_APP=pyfedi.py
 

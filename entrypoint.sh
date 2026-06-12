@@ -18,11 +18,10 @@ if [ -z "$SECRET_KEY" ]; then
     exit 1
 fi
 
-# Fix permissions on volume mounts (bind mounts and named volumes are owned by root)
-# Running as root in entrypoint, drops to python user before app starts
-# Fix permissions on volume mounts so the python user can write to them
-# (harmless when running as root, needed when deployed with user: UID)
-chown -R python:python /app/logs /app/app/static/media /app/app/static/tmp
+# Fix permissions on volume mounts before starting the app.
+# Volumes (named or bind) are owned by root initially.
+# This chown ensures they're writable regardless of deployment config.
+chown -R 1000:1000 /app/logs /app/app/static/media /app/app/static/tmp
 
 export FLASK_APP=pyfedi.py
 

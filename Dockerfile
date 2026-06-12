@@ -8,7 +8,7 @@ LABEL org.opencontainers.image.source="https://codeberg.org/rimu/pyfedi"
 LABEL org.opencontainers.image.version="1.6.27"
 LABEL org.opencontainers.image.licenses="AGPL-3.0"
 
-RUN adduser -D python
+RUN adduser -D -u 1000 python
 
 RUN apk add --no-cache \
     pkgconfig \
@@ -18,7 +18,9 @@ RUN apk add --no-cache \
     tesseract-ocr \
     tesseract-ocr-data-eng \
     postgresql-client \
-    bash
+    bash \
+    rust \
+    cargo
 
 # Install Python dependencies
 COPY piefed/requirements.txt /tmp/requirements.txt
@@ -39,7 +41,7 @@ RUN pybabel compile -d app/translations || true
 # Create required directories and set ownership for the python user
 # (volumes mounted at these paths will be handled by the entrypoint at runtime)
 RUN mkdir -p /app/app/static/media /app/logs /app/app/static/tmp && \
-    chown -R python:python /app
+    chown -R 1000:1000 /app
 
 # Copy custom entrypoints and init scripts
 COPY entrypoint.sh /app/entrypoint.sh
