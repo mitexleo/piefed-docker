@@ -33,7 +33,7 @@ os.environ["FLASK_APP"] = "pyfedi.py"
 
 def main():
     from app import create_app, db
-    from app.activitypub.key import RsaKeys
+    from app.activitypub.signature import RsaKeys
     from app.inoculation import retrieve_block_list, retrieve_peertube_block_list
     from app.models import (
         BannedInstances,
@@ -225,7 +225,7 @@ def main():
 def _create_admin_user(app):
     """Create an admin user from environment variables."""
     from app import db
-    from app.activitypub.key import RsaKeys
+    from app.activitypub.signature import RsaKeys
     from app.models import Role, User
     from app.utils import gibberish
 

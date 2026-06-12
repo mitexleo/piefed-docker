@@ -1,8 +1,6 @@
 #!/usr/bin/env sh
 set -e
 
-export FLASK_APP=pyfedi.py
-
 echo "========================================="
 echo "  PieFed - Starting Web Service"
 echo "========================================="
@@ -20,8 +18,13 @@ if [ -z "$SECRET_KEY" ]; then
     exit 1
 fi
 
-# Ensure required directories exist
-mkdir -p /app/app/static/media /app/logs /app/app/static/tmp
+# Fix permissions on volume mounts (bind mounts and named volumes are owned by root)
+# Running as root in entrypoint, drops to python user before app starts
+# Fix permissions on volume mounts so the python user can write to them
+# (harmless when running as root, needed when deployed with user: UID)
+chown -R python:python /app/logs /app/app/static/media /app/app/static/tmp
+
+export FLASK_APP=pyfedi.py
 
 echo "1/4 Running database migrations..."
 flask db upgrade
@@ -40,7 +43,6 @@ echo "========================================="
 echo "  PieFed is ready! Starting Gunicorn..."
 echo "========================================="
 
-# Start gunicorn with production settings
 exec gunicorn \
     --config gunicorn.conf.py \
     --preload \

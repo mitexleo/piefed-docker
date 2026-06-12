@@ -5,12 +5,11 @@ LABEL org.opencontainers.image.title="PieFed"
 LABEL org.opencontainers.image.description="A Lemmy/Mbin alternative written in Python with Flask"
 LABEL org.opencontainers.image.url="https://codeberg.org/rimu/pyfedi"
 LABEL org.opencontainers.image.source="https://codeberg.org/rimu/pyfedi"
-LABEL org.opencontainers.image.version="1.6.27"
+LABEL org.opencontainers.image.version="1.6.20"
 LABEL org.opencontainers.image.licenses="AGPL-3.0"
 
 RUN adduser -D python
 
-# Install system dependencies for building and runtime
 RUN apk add --no-cache \
     pkgconfig \
     gcc \
@@ -19,8 +18,7 @@ RUN apk add --no-cache \
     tesseract-ocr \
     tesseract-ocr-data-eng \
     postgresql-client \
-    bash \
-    py3-pip
+    bash
 
 # Install Python dependencies
 COPY piefed/requirements.txt /tmp/requirements.txt
@@ -38,7 +36,8 @@ WORKDIR /app
 # Compile translations (best-effort, may fail if no .po files)
 RUN pybabel compile -d app/translations || true
 
-# Create required directories with proper permissions
+# Create required directories and set ownership for the python user
+# (volumes mounted at these paths will be handled by the entrypoint at runtime)
 RUN mkdir -p /app/app/static/media /app/logs /app/app/static/tmp && \
     chown -R python:python /app
 
@@ -50,8 +49,10 @@ COPY scripts/ /app/scripts/
 
 RUN chmod +x /app/entrypoint.sh /app/entrypoint_celery.sh /app/entrypoint_notifs.sh
 
-USER python
+# Note: No USER directive. Entrypoint runs as root so it can
+# chown volume mounts to the python user, then runs the app.
+# This makes the image compatible with both named volumes and bind mounts.
 
 EXPOSE 5000 8000
 
-ENTRYPOINT ["./entrypoint.sh"]
+ENTRYPOINT ["/app/entrypoint.sh"]

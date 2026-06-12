@@ -1,16 +1,18 @@
 #!/usr/bin/env sh
 set -e
 
-export FLASK_APP=pyfedi.py
-
 echo "========================================="
 echo "  PieFed - Starting Celery Worker"
 echo "========================================="
 
+# Fix permissions on volume mounts so the python user can write to them
+chown -R python:python /app/logs /app/app/static/media /app/app/static/tmp
+
+export FLASK_APP=pyfedi.py
+
 # Wait for Redis to be available
 if [ -n "$CELERY_BROKER_URL" ]; then
     echo "Waiting for Redis at $CELERY_BROKER_URL..."
-    # Extract host from redis URL
     REDIS_HOST=$(echo "$CELERY_BROKER_URL" | sed -n 's/.*\/\/\([^:]*\).*/\1/p')
     REDIS_PORT=$(echo "$CELERY_BROKER_URL" | sed -n 's/.*:\([0-9]*\).*/\1/p')
     REDIS_PORT=${REDIS_PORT:-6379}
