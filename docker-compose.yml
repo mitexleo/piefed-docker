@@ -21,7 +21,6 @@ services:
     image: postgres:17
     restart: unless-stopped
     shm_size: 2gb
-    user: "1000:1000"
     environment:
       POSTGRES_USER: piefed
       POSTGRES_PASSWORD: piefed
