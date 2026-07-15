@@ -18,6 +18,7 @@ RUN apk add --no-cache \
     tesseract-ocr \
     tesseract-ocr-data-eng \
     postgresql-client \
+    postgresql-dev \
     bash \
     rust \
     cargo
