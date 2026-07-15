@@ -34,8 +34,7 @@ python /app/scripts/auto_init_db.py
 echo "3/4 Populating community search index..."
 flask populate_community_search
 
-echo "4/4 Configuration check..."
-flask config-check || true
+echo "4/4 Startup sequence complete"
 
 echo ""
 echo "========================================="

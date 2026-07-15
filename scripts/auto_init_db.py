@@ -34,7 +34,7 @@ os.environ["FLASK_APP"] = "pyfedi.py"
 def main():
     from app import create_app, db
     from app.activitypub.signature import RsaKeys
-    from app.inoculation import retrieve_block_list, retrieve_peertube_block_list
+    from app.utils import retrieve_block_list, retrieve_peertube_block_list
     from app.models import (
         BannedInstances,
         CronJobLog,
@@ -56,23 +56,18 @@ def main():
     with app.app_context():
         inspector = db.inspect(db.engine)
 
-        # Check if alembic_version table exists (DB already initialized)
-        if "alembic_version" in inspector.get_table_names() and User.query.first():
-            logger.info(
-                "✅ Database already initialized and has an admin user. Skipping initialization."
-            )
-            return
+        # Check if already fully initialized (has admin user)
+        try:
+            if User.query.first():
+                logger.info("✅ Database already initialized with admin user. Skipping.")
+                return
+        except Exception:
+            # Tables may not exist yet, that's fine
+            pass
 
-        # Check if alembic_version exists but no admin user
-        if "alembic_version" in inspector.get_table_names():
-            logger.info("⚠️  Database schema exists but no admin user found.")
-            logger.info("   Creating admin user from environment variables...")
-            _create_admin_user(app)
-            return
+        logger.info("🔄 Initializing/repairing database...")
 
-        logger.info("🔄 Initializing database for the first time...")
-
-        # Run the schema setup
+        # Ensure tables exist (idempotent if flask db upgrade already ran)
         db.create_all()
 
         # Drop PostgreSQL functions that might cause errors
@@ -83,25 +78,28 @@ def main():
 
         db.configure_mappers()
         db.create_all()
-        private_key, public_key = RsaKeys.generate_keypair()
-        db.session.add(
-            Site(
-                name="PieFed",
-                description="Explore Anything, Discuss Everything.",
-                public_key=public_key,
-                private_key=private_key,
-                language_id=2,
+
+        # Seed initial data only if not already present
+        if not Site.query.first():
+            private_key, public_key = RsaKeys.generate_keypair()
+            db.session.add(
+                Site(
+                    name="PieFed",
+                    description="Explore Anything, Discuss Everything.",
+                    public_key=public_key,
+                    private_key=private_key,
+                    language_id=2,
+                )
             )
-        )
-        db.session.add(Instance(domain=app.config["SERVER_NAME"], software="PieFed"))
-        db.session.add(Settings(name="allow_nsfw", value=json.dumps(False)))
-        db.session.add(Settings(name="allow_nsfl", value=json.dumps(False)))
-        db.session.add(Settings(name="allow_dislike", value=json.dumps(True)))
-        db.session.add(Settings(name="allow_local_image_posts", value=json.dumps(True)))
-        db.session.add(
-            Settings(name="allow_remote_image_posts", value=json.dumps(True))
-        )
-        db.session.add(Settings(name="federation", value=json.dumps(True)))
+        if not Instance.query.first():
+            db.session.add(Instance(domain=app.config["SERVER_NAME"], software="PieFed"))
+        if not Settings.query.first():
+            db.session.add(Settings(name="allow_nsfw", value=json.dumps(False)))
+            db.session.add(Settings(name="allow_nsfl", value=json.dumps(False)))
+            db.session.add(Settings(name="allow_dislike", value=json.dumps(True)))
+            db.session.add(Settings(name="allow_local_image_posts", value=json.dumps(True)))
+            db.session.add(Settings(name="allow_remote_image_posts", value=json.dumps(True)))
+            db.session.add(Settings(name="federation", value=json.dumps(True)))
         banned_instances = [
             "anonib.al",
             "lemmygrad.ml",
@@ -162,58 +160,45 @@ def main():
         db.session.add(Language(code="pl", name="Polski"))
         db.session.add(Language(code="uk", name="Українська"))
 
-        # Initial roles
-        anon_role = Role(name="Anonymous user", weight=0)
-        db.session.add(anon_role)
+        # Seed roles only if not already present
+        if not Role.query.first():
+            anon_role = Role(name="Anonymous user", weight=0)
+            db.session.add(anon_role)
 
-        auth_role = Role(name="Authenticated user", weight=1)
-        db.session.add(auth_role)
+            auth_role = Role(name="Authenticated user", weight=1)
+            db.session.add(auth_role)
 
-        staff_role = Role(name="Staff", weight=2)
-        staff_role.permissions.append(
-            RolePermission(permission="approve registrations")
-        )
-        staff_role.permissions.append(RolePermission(permission="ban users"))
-        staff_role.permissions.append(
-            RolePermission(permission="administer all communities")
-        )
-        staff_role.permissions.append(RolePermission(permission="administer all users"))
-        db.session.add(staff_role)
+            staff_role = Role(name="Staff", weight=2)
+            staff_role.permissions.append(RolePermission(permission="approve registrations"))
+            staff_role.permissions.append(RolePermission(permission="ban users"))
+            staff_role.permissions.append(RolePermission(permission="administer all communities"))
+            staff_role.permissions.append(RolePermission(permission="administer all users"))
+            db.session.add(staff_role)
 
-        admin_role = Role(name="Admin", weight=3)
-        admin_role.permissions.append(
-            RolePermission(permission="approve registrations")
-        )
-        admin_role.permissions.append(RolePermission(permission="change user roles"))
-        admin_role.permissions.append(RolePermission(permission="ban users"))
-        admin_role.permissions.append(RolePermission(permission="manage users"))
-        admin_role.permissions.append(
-            RolePermission(permission="change instance settings")
-        )
-        admin_role.permissions.append(
-            RolePermission(permission="administer all communities")
-        )
-        admin_role.permissions.append(RolePermission(permission="administer all users"))
-        admin_role.permissions.append(RolePermission(permission="edit cms pages"))
-        db.session.add(admin_role)
+            admin_role = Role(name="Admin", weight=3)
+            admin_role.permissions.append(RolePermission(permission="approve registrations"))
+            admin_role.permissions.append(RolePermission(permission="change user roles"))
+            admin_role.permissions.append(RolePermission(permission="ban users"))
+            admin_role.permissions.append(RolePermission(permission="manage users"))
+            admin_role.permissions.append(RolePermission(permission="change instance settings"))
+            admin_role.permissions.append(RolePermission(permission="administer all communities"))
+            admin_role.permissions.append(RolePermission(permission="administer all users"))
+            admin_role.permissions.append(RolePermission(permission="edit cms pages"))
+            db.session.add(admin_role)
 
-        # Add cron jobs to db
-        db.session.add(
-            CronJobLog(name="send_missed_notifs", frequency=timedelta(hours=7))
-        )
-        db.session.add(
-            CronJobLog(name="process_email_bounces", frequency=timedelta(hours=7))
-        )
-        db.session.add(
-            CronJobLog(name="clean_up_old_activities", frequency=timedelta(hours=7))
-        )
-        db.session.add(
-            CronJobLog(name="remove_orphan_files", frequency=timedelta(days=8))
-        )
-        db.session.add(
-            CronJobLog(name="daily_maintenance", frequency=timedelta(hours=25))
-        )
-        db.session.add(CronJobLog(name="send_queue", frequency=timedelta(minutes=5)))
+        # Add cron jobs to db (only if not already present)
+        existing_cron = {c.name for c in CronJobLog.query.all()}
+        cron_jobs = [
+            ("send_missed_notifs", timedelta(hours=7)),
+            ("process_email_bounces", timedelta(hours=7)),
+            ("clean_up_old_activities", timedelta(hours=7)),
+            ("remove_orphan_files", timedelta(days=8)),
+            ("daily_maintenance", timedelta(hours=25)),
+            ("send_queue", timedelta(minutes=5)),
+        ]
+        for name, freq in cron_jobs:
+            if name not in existing_cron:
+                db.session.add(CronJobLog(name=name, frequency=freq))
 
         db.session.commit()
         logger.info("✅ Database schema and initial data created.")
