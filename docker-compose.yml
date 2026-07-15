@@ -18,7 +18,7 @@ services:
   # PostgreSQL Database
   # ===========================================================================
   db:
-    image: postgres:17
+    image: postgres:18
     restart: unless-stopped
     shm_size: 2gb
     environment:
@@ -56,7 +56,7 @@ services:
       - -c
       - jit=off
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/
     networks:
       - piefed_network
     healthcheck:
