@@ -5,7 +5,7 @@ LABEL org.opencontainers.image.title="PieFed"
 LABEL org.opencontainers.image.description="A Lemmy/Mbin alternative written in Python with Flask"
 LABEL org.opencontainers.image.url="https://codeberg.org/rimu/pyfedi"
 LABEL org.opencontainers.image.source="https://codeberg.org/rimu/pyfedi"
-LABEL org.opencontainers.image.version="1.6.27"
+LABEL org.opencontainers.image.version="1.7.5"
 LABEL org.opencontainers.image.licenses="AGPL-3.0"
 
 RUN adduser -D -u 1000 python

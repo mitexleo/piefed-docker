@@ -1,9 +1,8 @@
 from datetime import timedelta
 
 from flask import g, current_app
-from sqlalchemy import desc, or_, text, func, cast, Float
-from sqlalchemy import select
-from sqlalchemy_searchable import search
+from sqlalchemy import desc, text, func, cast, Float, exists, and_, or_, any_
+from sqlalchemy.orm import aliased
 
 from app import db
 from app.api.alpha.views import reply_view, reply_report_view, post_view, community_view, user_view
@@ -248,6 +247,38 @@ def get_reply_list(auth, data, user_details=None):
 
             add_community_in_view = False
             add_post_in_view = False
+
+        if user_id:
+            # filter out blocked users' comments and all their replies
+            blocked_person_ids = blocked_users(user_id)
+            if blocked_person_ids:
+                parent_alias = aliased(PostReply)
+                replies = replies.filter(
+                    ~or_(
+                        PostReply.user_id.in_(blocked_person_ids),
+                        exists().where(
+                            and_(
+                                parent_alias.id == any_(PostReply.path),
+                                parent_alias.user_id.in_(blocked_person_ids)
+                            )
+                        )
+                    )
+                )
+            # filter out blocked instances' comments and all their replies
+            blocked_instance_ids = blocked_or_banned_instances(user_id)
+            if blocked_instance_ids:
+                parent_alias = aliased(PostReply)
+                replies = replies.filter(
+                    ~or_(
+                        PostReply.instance_id.in_(blocked_instance_ids),
+                        exists().where(
+                            and_(
+                                parent_alias.id == any_(PostReply.path),
+                                parent_alias.instance_id.in_(blocked_instance_ids)
+                            )
+                        )
+                    )
+                )
 
     if replies:
         # sort == 'Relevance' handled above when query.search was executed
@@ -518,7 +549,6 @@ def get_reply_report_list(auth, data):
 
         if user.id in mod_ids or user_access('administer all communities', user.id):
             reports = Report.query.filter(Report.suspect_post_reply_id == comment_id)
-            # report_list = [reply_report_view(report=report, reply_id=comment_id, user_id=user.id) for report in reports]
         else:
             raise Exception('incorrect login')
     elif community_id:
@@ -557,6 +587,38 @@ def get_reply_report_list(auth, data):
     reply_json['comment_reports'] = report_list
     reply_json['next_page'] = str(reports.next_num) if reports.next_num else None
 
+    return reply_json
+
+
+def put_reply_report_resolve(auth, data):
+    report_id = data['report_id']
+    resolved = data['resolved']
+
+    user = authorise_api_user(auth, return_type="model")
+
+    if not user:
+        raise Exception("incorrect login")
+    
+    report = Report.query.get(report_id)
+    
+    if not report.suspect_post_reply_id:
+        raise Exception("invalid target of resolution")
+    
+    community = Community.query.get(report.in_community_id)
+    mods = community.moderators()
+    mod_ids = [mod.user_id for mod in mods]
+
+    if user.id in mod_ids or user_access('administer all communities', user.id):
+        if resolved:
+            report.status = REPORT_STATE_RESOLVED
+        else:
+            report.status = REPORT_STATE_NEW
+
+        db.session.commit()
+    else:
+        raise Exception("incorrect login")
+    
+    reply_json = reply_report_view(report=report, reply_id=report.suspect_post_reply_id, user_id=user.id)
     return reply_json
 
 

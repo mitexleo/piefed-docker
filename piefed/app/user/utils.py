@@ -172,7 +172,7 @@ def _get_user_posts(user, post_page):
         ).order_by(desc(Post.posted_at)).paginate(page=post_page, per_page=20, error_out=False)
     else:
         # Everyone else sees only public, non-deleted posts
-        return base_query.filter(Post.deleted == False, Post.status > POST_STATUS_REVIEWING).order_by(
+        return base_query.filter(Post.deleted == False, Post.status > POST_STATUS_REVIEWING, Post.private == False).order_by(
             desc(Post.posted_at)).paginate(page=post_page, per_page=20, error_out=False)
 
 
@@ -189,7 +189,7 @@ def _get_user_post_replies(user, replies_page):
             desc(PostReply.posted_at)).paginate(page=replies_page, per_page=20, error_out=False)
     else:
         # Everyone else sees only non-deleted replies
-        return base_query.filter(PostReply.deleted == False).order_by(
+        return base_query.filter(PostReply.deleted == False, PostReply.private == False).order_by(
             desc(PostReply.posted_at)).paginate(page=replies_page, per_page=20, error_out=False)
 
 
@@ -273,7 +273,7 @@ def _get_user_upvoted_posts(user):
     """Get posts upvoted by user (only for user themselves or admins)."""
     if current_user.is_authenticated and (user.id == current_user.get_id() or current_user.is_admin()):
         return Post.query.join(PostVote, PostVote.post_id == Post.id).filter(PostVote.effect > 0, PostVote.user_id == user.id). \
-            order_by(desc(PostVote.created_at)).limit(50).all()
+            order_by(desc(PostVote.id)).limit(50).all()
     return []
 
 

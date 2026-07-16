@@ -151,7 +151,7 @@ def send_post(post_id, edit=False, session=None):
 
     # local_only communities can also be used to send activity to User Followers
     # return now though, if there aren't any
-    followers = session.query(UserFollower).filter_by(local_user_id=post.user_id).all()
+    followers = session.query(UserFollower).filter_by(local_user_id=post.user_id, is_inward=True).all()
     if not followers and community.local_only:
         return
 
@@ -244,6 +244,7 @@ def send_post(post_id, edit=False, session=None):
         page['buyTicketsLink'] = event.buy_tickets_link
         page['feeCurrency'] = event.event_fee_currency
         page['feeAmount'] = event.event_fee_amount
+        page['location'] = event.location
 
     activity = 'create' if not edit else 'update'
     create_id = f"{current_app.config['SERVER_URL']}/activities/{activity}/{gibberish(15)}"
@@ -289,7 +290,7 @@ def send_post(post_id, edit=False, session=None):
               'cc': cc,
               '@context': default_context()
             }
-            for instance in community.following_instances():
+            for instance in set(community.following_instances() + user.following_instances(software='piefed')):
                 if instance.inbox and instance.online() and not user.has_blocked_instance(instance.id) and not instance_banned(instance.domain):
                     if instance.software in MICROBLOG_APPS:
                         if activity == 'create':
@@ -304,7 +305,7 @@ def send_post(post_id, edit=False, session=None):
             send_post_request(community.ap_inbox_url, create, user.private_key, user.public_url() + '#main-key')
             domains_sent_to.append(community.instance.domain)
 
-    # amend copy of the Create, for anyone Mentioned in post body or who is following the user, to a format more likely to be understood
+    # amend copy of the Create, for anyone Mentioned in post body or who is following the user, to a format more likely to be understood by Mastodon
     if '@context' not in create:
         create['@context'] = default_context()
     if 'name' in page:
@@ -342,10 +343,9 @@ def send_post(post_id, edit=False, session=None):
         user_details = session.query(User).get(follower.remote_user_id)
         if user_details:
             create['cc'].append(user_details.public_url())
-    instances = session.query(Instance).join(User, User.instance_id == Instance.id).join(UserFollower, UserFollower.remote_user_id == User.id)
-    instances = instances.filter(UserFollower.local_user_id == post.user_id).filter(Instance.gone_forever == False)
-    for instance in instances:
-        if instance.domain not in domains_sent_to:
+
+    for instance in user.following_instances():
+        if instance.domain not in domains_sent_to and instance.id != 1 and instance.software != 'piefed':
             send_post_request(instance.inbox, create, user.private_key, user.public_url() + '#main-key')
 
 

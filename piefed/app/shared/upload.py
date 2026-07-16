@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 
 import boto3
@@ -7,16 +9,18 @@ from pillow_heif import register_heif_opener
 from sqlalchemy import text
 
 from app import db
-from app.models import File, user_file
-from app.utils import gibberish, ensure_directory_exists, store_files_in_s3, guess_mime_type, sanitize_svg
+from app.models import File, User, user_file
+from app.utils import can_upload_video, gibberish, ensure_directory_exists, is_video_url, store_files_in_s3, guess_mime_type, sanitize_svg
 
 
-def process_upload(image_file, destination='posts', user_id=None):
+def process_upload(image_file, destination='posts', user: User | None = None):
     # should have errored earlier if no upload, but just to be paranoid
     if not image_file or image_file.filename == '':
         raise Exception('file not uploaded')
 
     allowed_extensions = ['.gif', '.jpg', '.jpeg', '.png', '.webp', '.heic', '.mpo', '.avif', '.svg']
+    if user is not None and can_upload_video(user):
+        allowed_extensions.extend(['.mp4', '.webm', '.mov'])
     file_ext = os.path.splitext(image_file.filename)[1]
     if file_ext.lower() not in allowed_extensions:
         raise Exception('filetype not allowed')
@@ -56,7 +60,7 @@ def process_upload(image_file, destination='posts', user_id=None):
     if image_format == 'AVIF':
         import pillow_avif  # NOQA
 
-    if not final_place.endswith('.svg') and not final_place.endswith('.gif'):
+    if not final_place.endswith('.svg') and not final_place.endswith('.gif') and not is_video_url(final_place):
         img = Image.open(final_place)
         if '.' + img.format.lower() in allowed_extensions:
             img = ImageOps.exif_transpose(img)
@@ -72,14 +76,10 @@ def process_upload(image_file, destination='posts', user_id=None):
                 kwargs['quality'] = int(image_quality)
 
             img.save(final_place, optimize=True, **kwargs)
-
-            file_size = os.path.getsize(final_place)
-
-            url = f"{current_app.config['SERVER_URL']}/{final_place.replace('app/', '')}"
         else:
             raise Exception('filetype not allowed')
-    else:
-        url = f"{current_app.config['SERVER_URL']}/{final_place.replace('app/', '')}"
+    file_size = os.path.getsize(final_place)
+    url = f"{current_app.config['SERVER_URL']}/{final_place.replace('app/', '')}"
 
     # Move uploaded file to S3
     if store_files_in_s3():
@@ -87,6 +87,8 @@ def process_upload(image_file, destination='posts', user_id=None):
         extra_args = {'ContentType': guess_mime_type(final_place)}
         if current_app.config.get('S3_STORAGE_CLASS'):
             extra_args['StorageClass'] = current_app.config['S3_STORAGE_CLASS']
+        if current_app.config.get('S3_PUBLIC_ACL'):
+            extra_args['ACL'] = 'public-read'
         s3 = session.client(
             service_name='s3',
             region_name=current_app.config['S3_REGION'],
@@ -103,12 +105,12 @@ def process_upload(image_file, destination='posts', user_id=None):
         os.unlink(final_place)
 
     # associate file with uploader. Only provide user_id to this function when the image is not being used for a community icon, user avatar, etc where there is some other way to associate the image with the user.
-    if user_id:
+    if user:
         file = File(source_url=url)
         db.session.add(file)
         db.session.commit()
         db.session.execute(text('INSERT INTO "user_file" (file_id, user_id, size) VALUES (:file_id, :user_id, :size)'),
-                           {'file_id': file.id, 'user_id': user_id, 'size': file_size})
+                           {'file_id': file.id, 'user_id': user.id, 'size': file_size})
         db.session.commit()
 
     if not url:

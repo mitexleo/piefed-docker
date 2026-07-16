@@ -15,6 +15,14 @@
         <meta name="MobileOptimized" content="320">
         <meta name="color-scheme" content="light dark">
         <meta name="csrf-token" content="{{ cs }}">
+        <script type="speculationrules" nonce="{{ nonce }}">
+            {"prefetch": [
+                {
+                  "where": { "href_matches": "/c/*"},
+                  "eagerness": "moderate"
+                }
+            ]}
+        </script>
         <link rel="expect" blocking="render" href="#navbarSupportedContent">
         {% if current_user.is_anonymous -%}
             <script rel="preload" src="/static/js/enable_low_bandwidth.js" type="text/javascript" fetchpriority="high" nonce="{{ nonce }}"></script>
@@ -29,6 +37,10 @@
         {% elif current_user.font == 'roboto' -%}
             <link rel="preload" href="/static/fonts/roboto/Roboto-Regular.woff2" as="font" type="font/woff2" crossorigin>
             <link rel="preload" href="/static/fonts/roboto/Roboto-Bold.woff2" as="font" type="font/woff2" crossorigin>
+        {% elif current_user.font == 'dyslexic' -%}
+            <link rel="preload" href="/static/fonts/opendyslexic/OpenDyslexic-Regular.woff2" as="font" type="font/woff2" crossorigin>
+            <link rel="preload" href="/static/fonts/opendyslexic/OpenDyslexic-Italic.woff2" as="font" type="font/woff2" crossorigin>
+            <link rel="preload" href="/static/fonts/opendyslexic/OpenDyslexic-Bold.woff2" as="font" type="font/woff2" crossorigin>
         {% endif -%}
         {% block styles -%}
             {{ bootstrap.load_css() }}
@@ -75,7 +87,13 @@
             <meta property="og:image" content="{{ g.site.logo if g.site.logo else '/static/images/piefed_logo_full_t_300x300.svg' }}" />
         {% endif -%}
         {% if rss_feed -%}
-            <link rel="alternate" type="application/rss+xml" title="{{ rss_feed_name }}" href="{{ rss_feed }}" />
+            {% if rss_feed is string -%}
+                <link rel="alternate" type="application/rss+xml" title="{{ rss_feed_name }}" href="{{ rss_feed }}" />
+            {% else -%}
+                {% for rss_name, rss_href in rss_feed -%}
+                    <link rel="alternate" type="application/rss+xml" title="{{ rss_name }}" href="{{ rss_href }}" />
+                {% endfor -%}
+            {% endif -%}
         {% endif -%}
         {% if noindex -%}
             <meta name="robots" content="noindex">
@@ -112,8 +130,8 @@
     {%- include "svg_sprites.html" -%}
     {% if 'fontSize' in request.cookies -%}
         <style>
-            body, .form-control, .btn, .dropdown-item {
-                font-size: {{ request.cookies.get('fontSize') }}rem;
+            :root {
+                font-size: {{ (request.cookies.get('fontSize')|float * 100)|round(2) }}%;
             }
         </style>
     {% endif -%}
@@ -125,6 +143,8 @@
                 {% include 'fonts/atkinson.css' %}
             {% elif current_user.font == 'roboto' %}
                 {% include 'fonts/roboto.css' %}
+            {% elif current_user.font == 'dyslexic' %}
+                {% include 'fonts/dyslexic.css' %}
             {% endif %}
         </style>
     {% endif -%}

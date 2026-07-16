@@ -8,13 +8,15 @@
 {% set active_child = 'home' %}
 
 {% block app_content %}
+
+{% if current_user.is_anonymous -%}
+    <div class="alert alert-info" role="alert">{{ _('Create an account to tailor this feed to your interests.') }}</div>
+{% endif -%}
+
 <div class="row home">
     <main class="col-12 col-lg-8 position-relative main_pane">
         {% if announcement -%}
             <div id="home_announcement">{{ announcement|safe }}</div>
-        {% endif -%}
-        {% if current_user.is_anonymous -%}
-            <div class="alert alert-info ml-3" role="alert">{{ _('Create an account to tailor this feed to your interests.') }}</div>
         {% endif -%}
         <div class="row">
             <div class="col-6 pe-1">
@@ -59,7 +61,7 @@
 
     <aside id="side_pane" class="col-12 col-lg-4 side_pane" role="complementary">
         {% if new_communities and len(new_communities) > 0 -%}
-        <div class="card mb-3">
+        <div id="new_communities_card" class="card mb-3">
             <div class="card-header">
                  <h2>{{ _('New communities') }}</h2>
             </div>
@@ -76,7 +78,7 @@
         </div>
         {% endif -%}
 
-        <div class="card">
+        <div id="active_communities_card" class="card">
             <div class="card-header">
                  <h2>{{ _('Active communities') }}</h2>
             </div>
@@ -97,7 +99,7 @@
         </div>
 
         {% if upcoming_events -%}
-        <div class="card mt-3" id="upcoming_events">
+        <div id="upcoming_events_card" class="card mt-3" id="upcoming_events">
             <div class="card-header">
                 <h2><span class="fe fe-event"></span> {{ _('Upcoming events') }}</h2>
             </div>
@@ -114,7 +116,7 @@
         </div>
         {% endif -%}
 
-        <div class="card mt-3">
+        <div id="about_card" class="card mt-3">
             <div class="card-header">
                  <h2>{{ _('About %(site_name)s', site_name=g.site.name) }}</h2>
             </div>
@@ -126,9 +128,13 @@
                     <p>{{ g.site.sidebar_html|safe }}</p>
                 {% endif -%}
                 {% if rss_feed %}
-                <p class="mt-4">
-                    <a class="no-underline" href="{{ rss_feed }}" rel="nofollow"><span class="fe fe-rss"></span> {{ _('RSS feed') }}</a>
-                </p>
+                    <ul class="list-group list-group-flush mt-4">
+                    {% for name, path in rss_feed %}
+                        <li class="list-group-item">
+                            <a class="no-underline" href="{{ path }}" rel="nofollow"><span class="fe fe-rss"></span> {{ name }}</a>
+                        </li>
+                    {% endfor %}
+                    </ul>
                 {% endif -%}
                 {% cache 60*5, g.locale %}
                     {% set active_monthly = g.site.active_monthly() -%}
@@ -154,7 +160,7 @@
         </div>
 
         {% if new_instances and len(new_instances) > 0 -%}
-        <div class="card mb-3 mt-3">
+        <div id="new_instances_card" class="card mb-3 mt-3">
             <div class="card-header">
                  <h2>{{ _('New instances') }}</h2>
             </div>
@@ -162,7 +168,7 @@
                 <ul class="list-group list-group-flush">
                     {% for instance in new_instances %}
                         <li class="list-group-item">
-                            <a href="https://{{ instance.domain }}">{{ instance.domain }}</a> <span class="text-muted">({{ instance.software }})</span>
+                            <a href="https://{{ instance.domain }}">{{ instance.domain }}</a>
                         </li>
                     {% endfor %}
                 </ul>

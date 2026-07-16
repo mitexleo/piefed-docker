@@ -5,6 +5,7 @@
 # You should have received a copy of the GPL along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import imaplib
+import poplib
 import logging
 import os
 import re
@@ -35,7 +36,7 @@ from app.models import CronJobLog, Settings, BannedInstances, Role, User, RolePe
     Community, SendQueue, _store_files_in_s3, PostVote, Poll, \
     ActivityBatch, Reminder
 from app.shared.tasks import task_selector
-from app.shared.tasks.maintenance import add_remote_communities, remove_old_bot_content
+from app.shared.tasks.maintenance import add_remote_communities, remove_old_bot_content, pwn_bots
 from app.utils import retrieve_block_list, blocked_domains, retrieve_peertube_block_list, \
     shorten_string, get_request, blocked_communities, gibberish, \
     recently_upvoted_post_replies, recently_upvoted_posts, jaccard_similarity, \
@@ -475,6 +476,8 @@ def register(app):
         archive_old_posts()                 # 2 hours
         print(f'21 {datetime.now()}')
         archive_old_users()
+        print(f'22 {datetime.now()}')
+        pwn_bots()
         print(f'Finished {datetime.now()}')
 
         log_cron_task_to_db("daily_maintenance")
@@ -490,62 +493,58 @@ def register(app):
     @app.cli.command('send-queue')
     def send_queue():
         with app.app_context():
-            session = get_task_session()
             try:
-                with patch_db_session(session):
-                    from app import redis_client
-                    try:  # avoid parallel runs of this task using Redis lock
-                        with redis_client.lock("lock:send-queue", timeout=300, blocking_timeout=1):
-                            # Check size of redis memory. Abort if > 200 MB used
-                            try:
-                                if redis_client and current_app.config['REDIS_MEMORY_LIMIT'] != -1 and \
-                                        redis_client.memory_stats()['total.allocated'] > current_app.config['REDIS_MEMORY_LIMIT']:
-                                    print('Redis memory is quite full - stopping send queue to avoid making it worse.')
-                                    redis_client.set("pause_federation", "1", ex=600)   # this also stops incoming federation
-                                    return
-                                else:
-                                    redis_client.set("pause_federation", "0", ex=600)
-                            except:  # retrieving memory stats fails on recent versions of redis. Once the redis package is fixed this problem should go away.
-                                ...
-                            if not current_app.debug:
-                                sleep(uniform(0, 10))  # Cron jobs are not very granular so there is a danger all instances will send in the same instant. A random delay avoids this.
+                from app import redis_client
+                try:  # avoid parallel runs of this task using Redis lock
+                    with redis_client.lock("lock:send-queue", timeout=300, blocking_timeout=1):
+                        # Check size of redis memory. Abort if > 200 MB used
+                        try:
+                            if redis_client and current_app.config['REDIS_MEMORY_LIMIT'] != -1 and \
+                                    redis_client.memory_stats()['total.allocated'] > current_app.config['REDIS_MEMORY_LIMIT']:
+                                print('Redis memory is quite full - stopping send queue to avoid making it worse.')
+                                redis_client.set("pause_federation", "1", ex=600)   # this also stops incoming federation
+                                return
+                            else:
+                                redis_client.set("pause_federation", "0", ex=600)
+                        except:  # retrieving memory stats fails on recent versions of redis. Once the redis package is fixed this problem should go away.
+                            ...
+                        if not current_app.debug:
+                            sleep(uniform(0, 10))  # Cron jobs are not very granular so there is a danger all instances will send in the same instant. A random delay avoids this.
 
-                            to_be_deleted = []
-                            # Send all waiting Activities that are due to be sent
-                            for to_send in session.query(SendQueue).filter(SendQueue.send_after < utcnow()):
-                                if instance_online(to_send.destination_domain):
-                                    if to_send.retries <= to_send.max_retries:
-                                        send_post_request(to_send.destination, json.loads(to_send.payload), to_send.private_key,
-                                                          to_send.actor,
-                                                          retries=to_send.retries + 1)
-                                    to_be_deleted.append(to_send.id)
-                                elif instance_gone_forever(to_send.destination_domain):
-                                    to_be_deleted.append(to_send.id)
-                            # Remove them once sent - send_post_request will have re-queued them if they failed
-                            if len(to_be_deleted):
-                                session.execute(text('DELETE FROM "send_queue" WHERE id IN :to_be_deleted'),
-                                                   {'to_be_deleted': tuple(to_be_deleted)})
-                                session.commit()
+                        to_be_deleted = []
+                        # Send all waiting Activities that are due to be sent
+                        for to_send in db.session.query(SendQueue).filter(SendQueue.send_after < utcnow()):
+                            if instance_online(to_send.destination_domain):
+                                if to_send.retries <= to_send.max_retries:
+                                    send_post_request(to_send.destination, json.loads(to_send.payload), to_send.private_key,
+                                                      to_send.actor,
+                                                      retries=to_send.retries + 1)
+                                to_be_deleted.append(to_send.id)
+                            elif instance_gone_forever(to_send.destination_domain):
+                                to_be_deleted.append(to_send.id)
+                        # Remove them once sent - send_post_request will have re-queued them if they failed
+                        if len(to_be_deleted):
+                            db.session.execute(text('DELETE FROM "send_queue" WHERE id IN :to_be_deleted'),
+                                               {'to_be_deleted': tuple(to_be_deleted)})
+                            db.session.commit()
 
-                            publish_scheduled_posts()
+                        publish_scheduled_posts()
 
-                            send_batched_activities()
+                        send_batched_activities()
 
-                            reminders()
+                        reminders()
 
-                            plugins.fire_hook('cron_often')
+                        plugins.fire_hook('cron_often')
 
-                    except redis.exceptions.LockError:
-                        print('Send queue is still running - stopping this process to avoid duplication.')
-                        return
-                    except Exception as e:
-                        print('Could not connect to redis or other error occurred')
-                        raise e
+                except redis.exceptions.LockError:
+                    print('Send queue is still running - stopping this process to avoid duplication.')
+                    return
+                except Exception as e:
+                    print('Could not connect to redis or other error occurred')
+                    raise e
             except Exception:
-                session.rollback()
+                db.session.rollback()
                 raise
-            finally:
-                session.close()
 
             log_cron_task_to_db("send_queue")
 
@@ -603,7 +602,9 @@ def register(app):
                         scheduled_post.id = None
                         scheduled_post.ap_id = None
                         scheduled_post.scheduled_for = None
+                        scheduled_post.archived = None
                         scheduled_post.posted_at = utcnow()
+                        scheduled_post.created_at = utcnow()
                         scheduled_post.edited_at = None
                         scheduled_post.status = POST_STATUS_PUBLISHED
                         scheduled_post.title = render_from_tpl(scheduled_post.title)
@@ -799,6 +800,8 @@ def register(app):
                 extra_args = {'ContentType': content_type}
                 if current_app.config.get('S3_STORAGE_CLASS'):
                     extra_args['StorageClass'] = current_app.config['S3_STORAGE_CLASS']
+                if current_app.config.get('S3_PUBLIC_ACL'):
+                    extra_args['ACL'] = 'public-read'
                 new_path = file.source_url.replace('/static/media/', "/")
                 s3_path = new_path.replace(f'https://{server_name}/', '')
                 new_path = new_path.replace(server_name, current_app.config['S3_PUBLIC_URL'])
@@ -916,56 +919,93 @@ def register(app):
                 with patch_db_session(session):
                     import email
 
-                    imap_host = current_app.config['BOUNCE_HOST']
-                    imap_user = current_app.config['BOUNCE_USERNAME']
-                    imap_pass = current_app.config['BOUNCE_PASSWORD']
+                    bounce_host = current_app.config['BOUNCE_HOST']
+                    host_type = current_app.config['BOUNCE_HOST_TYPE']
+                    inbox_user = current_app.config['BOUNCE_USERNAME']
+                    inbox_pass = current_app.config['BOUNCE_PASSWORD']
                     something_deleted = False
+                    emails = set()
 
-                    if imap_host:
+                    if bounce_host:
 
-                        # connect to host using SSL
-                        imap = imaplib.IMAP4_SSL(imap_host, port=993)
+                        if host_type.lower() == 'imap':
+                            # connect to host using SSL
+                            imap = imaplib.IMAP4_SSL(bounce_host, port=993)
 
-                        ## login to server
-                        imap.login(imap_user, imap_pass)
+                            ## login to server
+                            imap.login(inbox_user, inbox_pass)
 
-                        imap.select('Inbox')
+                            imap.select('Inbox')
 
-                        tmp, data = imap.search(None, 'ALL')
-                        rgx = r'[\w\.-]+@[\w\.-]+'
+                            tmp, data = imap.search(None, 'ALL')
+                            rgx = r'[\w\.-]+@[\w\.-]+'
 
-                        emails = set()
-
-                        for num in data[0].split():
-                            tmp, data = imap.fetch(num, '(RFC822)')
-                            email_message = email.message_from_bytes(data[0][1])
-                            match = []
-                            if not isinstance(email_message._payload, str):
-                                if isinstance(email_message._payload[0]._payload, str):
-                                    payload = email_message._payload[0]._payload.replace("\n", " ").replace("\r", " ")
-                                    match = re.findall(rgx, payload)
-                                elif isinstance(email_message._payload[0]._payload, list):
-                                    if isinstance(email_message._payload[0]._payload[0]._payload, str):
-                                        payload = email_message._payload[0]._payload[0]._payload.replace("\n", " ").replace("\r", " ")
+                            for num in data[0].split():
+                                tmp, data = imap.fetch(num, '(RFC822)')
+                                email_message = email.message_from_bytes(data[0][1])
+                                match = []
+                                if not isinstance(email_message._payload, str):
+                                    if isinstance(email_message._payload[0]._payload, str):
+                                        payload = email_message._payload[0]._payload.replace("\n", " ").replace("\r", " ")
                                         match = re.findall(rgx, payload)
+                                    elif isinstance(email_message._payload[0]._payload, list):
+                                        if isinstance(email_message._payload[0]._payload[0]._payload, str):
+                                            payload = email_message._payload[0]._payload[0]._payload.replace("\n", " ").replace("\r", " ")
+                                            match = re.findall(rgx, payload)
 
-                                for m in match:
-                                    if current_app.config['SERVER_NAME'] not in m and current_app.config['SERVER_NAME'].upper() not in m:
-                                        emails.add(m)
-                                        print(str(num) + ' ' + m)
+                                    for m in match:
+                                        if current_app.config['SERVER_NAME'] not in m and current_app.config['SERVER_NAME'].upper() not in m:
+                                            emails.add(m)
+                                            print(str(num) + ' ' + m)
 
-                            imap.store(num, '+FLAGS', '\\Deleted')
-                            something_deleted = True
+                                imap.store(num, '+FLAGS', '\\Deleted')
+                                something_deleted = True
 
-                        if something_deleted:
-                            imap.expunge()
-                            pass
+                            if something_deleted:
+                                imap.expunge()
+                                pass
 
-                        imap.close()
+                            imap.close()
+
+                        elif host_type.lower() == 'pop3':
+                            # connect to host
+                            pop3 = poplib.POP3(bounce_host, port=110)
+
+                            ## login to server
+                            pop3.user(inbox_user)
+                            pop3.pass_(inbox_pass)
+
+                            rgx = r'[\w\.-]+@[\w\.-]+'
+
+                            # Get message count
+                            tmp = pop3.list()
+                            message_ids = [msg.decode().split()[0] for msg in tmp[1]]
+
+                            for msg_id in message_ids:
+                                tmp, lines, octets = pop3.retr(msg_id)
+                                email_message = email.message_from_bytes(b'\n'.join(lines))
+                                match = []
+                                if not isinstance(email_message._payload, str):
+                                    if isinstance(email_message._payload[0]._payload, str):
+                                        payload = email_message._payload[0]._payload.replace("\n", " ").replace("\r", " ")
+                                        match = re.findall(rgx, payload)
+                                    elif isinstance(email_message._payload[0]._payload, list):
+                                        if isinstance(email_message._payload[0]._payload[0]._payload, str):
+                                            payload = email_message._payload[0]._payload[0]._payload.replace("\n", " ").replace("\r", " ")
+                                            match = re.findall(rgx, payload)
+
+                                    for m in match:
+                                        if current_app.config['SERVER_NAME'] not in m and current_app.config['SERVER_NAME'].upper() not in m:
+                                            emails.add(m)
+                                            print(str(msg_id) + ' ' + m)
+
+                                pop3.dele(msg_id)
+
+                            pop3.quit()
 
                         # Keep track of how many times email to an account has bounced. After 2 bounces, disable email sending to them
                         for bounced_email in emails:
-                            bounced_accounts = User.query.filter_by(email=bounced_email).all()
+                            bounced_accounts = session.query(User).filter_by(email=bounced_email.strip()).all()
                             for account in bounced_accounts:
                                 if account.bounces is None:
                                     account.bounces = 0
@@ -974,7 +1014,7 @@ def register(app):
                                     account.email_unread = False
                                 else:
                                     account.bounces += 1
-                            db.session.commit()
+                                session.commit()
             except Exception:
                 session.rollback()
                 raise

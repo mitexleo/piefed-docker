@@ -22,6 +22,7 @@ def safe_int_env(var_name: str, default: int = 0) -> int:
 class Config(object):
     SERVER_NAME = os.environ.get('SERVER_NAME').lower() or 'localhost'
     SECRET_KEY = os.environ.get('SECRET_KEY')
+    JWT_EXPIRY_DAYS = int(os.environ.get('JWT_EXPIRY_DAYS') or 365)
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
                               'sqlite:///' + os.path.join(basedir, 'app.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -48,6 +49,7 @@ class Config(object):
 
     BOUNCE_ADDRESS = os.environ.get('BOUNCE_ADDRESS') or MAIL_FROM or ''    # Warning: all emails in this inbox will be deleted!
     BOUNCE_HOST = os.environ.get('BOUNCE_HOST') or ''
+    BOUNCE_HOST_TYPE = os.environ.get('BOUNCE_HOST_TYPE') or ''     # imap or pop3
     BOUNCE_USERNAME = os.environ.get('BOUNCE_USERNAME') or ''
     BOUNCE_PASSWORD = os.environ.get('BOUNCE_PASSWORD') or ''
 
@@ -92,6 +94,7 @@ class Config(object):
     S3_ACCESS_KEY = os.environ.get('S3_ACCESS_KEY') or ''
     S3_ACCESS_SECRET = os.environ.get('S3_ACCESS_SECRET') or ''
     S3_PUBLIC_URL = os.environ.get('S3_PUBLIC_URL') or ''
+    S3_PUBLIC_ACL = os.environ.get('S3_PUBLIC_ACL') or False
     S3_STORAGE_CLASS = os.environ.get('S3_STORAGE_CLASS') or ''
 
     GOOGLE_OAUTH_CLIENT_ID = os.environ.get('GOOGLE_OAUTH_CLIENT_ID') or ''
@@ -184,3 +187,5 @@ class Config(object):
     DETECT_AI_ENDPOINT = os.environ.get('DETECT_AI_ENDPOINT') or ''
 
     REDIS_MEMORY_LIMIT = int(os.environ.get('REDIS_MEMORY_LIMIT') or 200000000)
+
+    VOTE_QUOTA = int(os.environ.get('VOTE_QUOTA') or 240)

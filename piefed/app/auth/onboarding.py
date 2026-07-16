@@ -1,4 +1,4 @@
-from flask import redirect, url_for, flash, current_app, abort, g
+from flask import redirect, url_for, flash, current_app, abort, g, request
 from flask_babel import _
 from flask_login import current_user, login_required
 
@@ -6,9 +6,10 @@ from app import db, cache
 from app.activitypub.signature import send_post_request
 from app.auth import bp
 from app.auth.forms import ChooseTopicsForm, FilterSetupForm
+from app.auth.util import get_country
 from app.constants import SUBSCRIPTION_NONMEMBER
 from app.models import User, Topic, Community, CommunityJoinRequest, CommunityMember, Filter, InstanceChooser, Language
-from app.utils import render_template, joined_communities, community_membership, get_setting, num_topics
+from app.utils import render_template, joined_communities, community_membership, get_setting, num_topics, ip_address
 
 
 @bp.route('/instance_chooser')
@@ -44,6 +45,7 @@ def filter_selection():
             return redirect(url_for('auth.choose_topics'))
         else:
             form.hide_nsfw.data = 0 if current_app.config['CONTENT_WARNING'] or g.site.enable_nsfw else 1
+            form.ignore_bots.data = 1
             return render_template('auth/filter_selection.html', form=form)
     else:
         return redirect(url_for('auth.choose_topics'))
@@ -55,11 +57,14 @@ def choose_topics():
     mark_onboarding_as_finished()
     if get_setting('choose_topics', True) and num_topics() > 0:
         form = ChooseTopicsForm()
-        form.chosen_topics.choices = topics_for_form()
-        if form.validate_on_submit():
-            if form.chosen_topics.data:
-                for topic_id in form.chosen_topics.data:
-                    join_topic(topic_id)
+        topic_tree, selections = topics_for_form()
+        
+        if request.method == 'POST':
+            # Handle form submission - get selected topics from request
+            chosen_topic_ids = request.form.getlist('chosen_topics')
+            if chosen_topic_ids:
+                for topic_id_str in chosen_topic_ids:
+                    join_topic(int(topic_id_str))
                 flash(_('You have joined some communities relating to those interests. Find more on the Explore menu or browse the home page.'))
                 cache.delete_memoized(joined_communities, current_user.id)
                 return redirect(url_for('main.index'))
@@ -67,8 +72,9 @@ def choose_topics():
                 flash(_('You did not choose any topics. Would you like to choose individual communities instead?'))
                 return redirect(url_for('main.list_communities'))
         else:
-            return render_template('auth/choose_topics.html', form=form,
-                                   )
+            # Set default selections based on user's country
+            form.chosen_topics.data = selections
+            return render_template('auth/choose_topics.html', form=form, topic_tree=topic_tree)
     else:
         flash(_('Please join some communities you\'re interested in and then go to the home page by clicking on the logo above.'))
         return redirect(url_for('main.list_communities'))
@@ -96,14 +102,49 @@ def join_topic(topic_id):
 
 
 def topics_for_form():
+    """Build a hierarchical topic tree with max 3 levels for the form.
+    
+    Returns:
+        list: Nested topic structure with depth info
+        list: Default selected topic IDs based on user's country
+    """
     topics = Topic.query.filter_by(parent_id=None).order_by(Topic.name).all()
-    result = []
-    for topic in topics:
-        result.append((topic.id, topic.name))
+    user_country = get_country(ip_address())
+    
+    def build_topic_tree(topic, depth=0):
+        """Recursively build topic tree, limiting to 3 levels max."""
+        if depth > 2:  # Max depth is 2 (0=root, 1=child, 2=grandchild)
+            return None
+            
+        node = {
+            'id': topic.id,
+            'name': topic.name,
+            'depth': depth,
+            'children': [],
+            'selected': user_country in topic.countries if user_country and topic.countries else False
+        }
+        
+        # Fetch children and build their trees
         sub_topics = Topic.query.filter_by(parent_id=topic.id).order_by(Topic.name).all()
         for sub_topic in sub_topics:
-            result.append((sub_topic.id, ' --- ' + sub_topic.name))
-    return result
+            child = build_topic_tree(sub_topic, depth + 1)
+            if child is not None:  # Only add if within depth limit
+                node['children'].append(child)
+        
+        return node
+    
+    # Build tree from root topics
+    topic_tree = []
+    selections = []
+    
+    for topic in topics:
+        node = build_topic_tree(topic)
+        if node is not None:
+            topic_tree.append(node)
+            if node['selected']:
+                selections.append(node['id'])
+    
+    return topic_tree, selections
 
 
 def send_community_follow(community_id: int, join_request_id: int, user_id: int):

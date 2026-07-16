@@ -29,7 +29,8 @@ document.addEventListener("DOMContentLoaded", function () {
         setupCommunityNameInput,
         setupCommunityConditionalFields,
         setupShowMoreLinks,
-        setupSubmitOnInputChange
+        setupSubmitOnInputChange,
+        setupTeaserClick
     ];
     
     // Lower priority setup functions that can be deferred
@@ -128,6 +129,51 @@ document.addEventListener("DOMContentLoaded", function () {
 
 });
 
+
+function setupTeaserClick() {
+    // make post teasers clickable
+    if(window.matchMedia("(pointer: fine)").matches) {
+        document.querySelectorAll('.post_teaser').forEach(teaser => {
+            if (!teaser.dataset.teaserClick) {
+                teaser.addEventListener('click', function (e) {
+
+                    // Ignore clicks on controls within the teaser
+                    if (e.target.closest(
+                        'button, [role="button"], .dropdown, .dropdown-menu, .voting_buttons_new, [hx-post], .reaction_button, img, a'
+                    )) {
+                        return;
+                    }
+
+                    const link = teaser.querySelector('h3 a');
+                    if (!link?.href) return;
+
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+
+                    // ctrl/cmd click opens new tab
+                    if (e.metaKey || e.ctrlKey || e.button === 1) {
+                        window.open(link.href, '_blank', 'noopener');
+                        return;
+                    }
+
+                    // shift click opens new window
+                    if (e.shiftKey) {
+                        window.open(link.href, '_blank');
+                        return;
+                    }
+
+                    // normal click
+                    if (e.button === 0) {
+                        window.location.href = link.href;
+                    }
+
+                }, true);
+            }
+            teaser.dataset.teaserClick = 'true';
+        });
+    }
+}
 
 function setupUserPopup() {
     if(window.matchMedia("(pointer: fine)").matches) {
@@ -1425,16 +1471,12 @@ function setupFederationModeToggle() {
 }
 
 function getCurrentFontSize() {
-    const fontSize = getComputedStyle(document.body).fontSize;
-    return parseFloat(fontSize) / parseFloat(getComputedStyle(document.documentElement).fontSize);
+    return parseFloat(getComputedStyle(document.documentElement).fontSize) / 16;
 }
 
-// Apply font size to target elements
+// Scale the whole UI by resizing the root element. All rem-based styles follow.
 function applyFontSize(sizeRem) {
-    document.body.style.fontSize = sizeRem + 'rem';
-    document.querySelectorAll('.form-control').forEach(el => {
-        el.style.fontSize = sizeRem + 'rem';
-    });
+    document.documentElement.style.fontSize = (sizeRem * 100) + '%';
 }
 
 

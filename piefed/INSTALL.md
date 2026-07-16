@@ -44,6 +44,11 @@ configuration. While it is quicker and easier, it's not to everyone's taste.
 
 [DOCKER INSTRUCTIONS ARE HERE](https://codeberg.org/rimu/pyfedi/src/branch/main/INSTALL-docker.md)
 
+### Managed way: YunoHost
+
+PieFed is available as an app for YunoHost, which offers an easy installation in a couple of clicks without any other setup hassle.
+
+[PIEFED IN THE YUNOHOST APP STORE](https://apps.yunohost.org/app/piefed)
 
 ### Hard way: bare metal
 
@@ -125,7 +130,7 @@ We have supplied a ruff.toml config file in the root of the project.
 ```bash
 git clone https://codeberg.org/rimu/pyfedi.git
 cd pyfedi
-git checkout v1.6.x
+git checkout v1.7.x
 ```
 
 Change the 'git checkout' line to be the latest release. Check the branch name to find what to use after 'checkout' by

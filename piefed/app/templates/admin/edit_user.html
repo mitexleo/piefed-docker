@@ -40,6 +40,7 @@
             {{ render_field(form.banned) }}
             {{ render_field(form.ban_posts) }}
             {{ render_field(form.ban_comments) }}
+            {{ render_field(form.can_send_pm) }}
             <p>{{ _('receive newsletter') }}: {{ user.newsletter }}</p>
             {{ render_field(form.hide_nsfw) }}
             {{ render_field(form.hide_nsfl) }}
@@ -53,7 +54,7 @@
         </form>
         <p class="mt-4">
             {% if not user.is_local() %}
-                <a href="{{ user.public_url() }}" class="btn btn-primary">{{ _('View original profile') }}</a>
+                <a href="{{ user.public_url() }}" class="btn btn-primary">{{ _('View on home server') }}</a>
             {% endif %}
         </p>
     </div>
