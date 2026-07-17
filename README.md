@@ -1,6 +1,6 @@
 # PieFed Docker 🐳
 
-> Dockerized deployment of [PieFed](https://codeberg.org/rimu/pyfedi) v1.7.5 — a Lemmy/Mbin alternative written in Python with Flask.
+> Dockerized deployment of [PieFed](https://codeberg.org/rimu/pyfedi) v1.7.6 — a Lemmy/Mbin alternative written in Python with Flask.
 
 ## Quick Start
 
@@ -164,7 +164,7 @@ docker compose up -d --build
 ```
 
 > **Note:** Version updates are handled automatically by the GitHub Actions workflow.
-> The `mitexleo/piefed-docker:v1.7.5` image is rebuilt and pushed whenever a new PieFed release is tagged.
+> The `mitexleo/piefed-docker:v1.7.6` image is rebuilt and pushed whenever a new PieFed release is tagged.
 
 ## Data Persistence
 
